@@ -3,9 +3,9 @@ Created on 2010-05-01
 
 @author: rv
 '''
-from Tkinter import *
+from tkinter import *
 
-class WdgWealth():
+class WdgWealth:
     '''
     classdocs
     '''

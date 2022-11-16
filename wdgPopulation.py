@@ -4,9 +4,9 @@ Created on 2010-05-03
 @author: rv
 '''
 
-from Tkinter import *
+from tkinter import *
 
-class WdgPopulation():
+class WdgPopulation:
     '''
     classdocs
     '''
