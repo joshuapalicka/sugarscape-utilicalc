@@ -38,8 +38,8 @@ In other words: Cellular Automata + Agents = Sugarscape.
 ![](results/sgProtoHistoryInitial.png) ![](results/sgProtoHistorySegregation.png) ![](results/sgProtoHistory100.png)
 
 ### Instructions
-Install Python 2.6 and above: https://www.python.org.  
-Install Pygame 1.9 package: http://www.pygame.org.  
+Install Python 3.6 and above: https://www.python.org.  
+Install Pygame 2.1 package: http://www.pygame.org.  
 On command schell, execute: `python sugarscape.py`.  
 Edit `sugarscape.py` and uncomment settings for the wanted simulation, run again.
 
