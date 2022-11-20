@@ -15,13 +15,17 @@ class WdgAgent:
         '''
         Constructor
         '''
-        self.root = Tk()
+        self.root = Toplevel()
+        self.root.protocol("WM_DELETE_WINDOW", self.root.iconify)
         self.root.title(title)
         self.canvas = Canvas(self.root, width=width, height=height)
         self.canvas.pack()
         self.width = width
         self.height = height
+        self.update(metabolismMean, visionMean)
 
+    def update(self, metabolismMean, visionMean):
+        self.canvas.delete("all")
         # Create axis
         x0 = 20
         y0 = self.height - 20
@@ -58,7 +62,15 @@ class WdgAgent:
         self.canvas.create_text(self.visionSeries[-1][-2], y0 - 10 - visionMean[-1] * incry, text=visionMean[-1],
                                 fill='red', anchor=SW)
 
-    # Generator that formats data in series 
+        self.canvas.create_line(*self.X, arrow=LAST)
+        self.canvas.create_line(*self.Y, arrow=LAST)
+        for curve in self.metabolismSeries:
+            self.canvas.create_line(*curve, fill='blue')
+        for curve in self.visionSeries:
+            self.canvas.create_line(*curve, fill='red')
+
+
+    # Generator that formats data in series
     def createFormatSeries(self, xmin, ymin, xmax, ymax, dx, dy, data):
         curve = []
         x = xmin
@@ -71,13 +83,3 @@ class WdgAgent:
                 curve = []
                 x = xmin
         yield curve
-
-    # Display widget
-    def execute(self):
-        self.canvas.create_line(*self.X, arrow=LAST)
-        self.canvas.create_line(*self.Y, arrow=LAST)
-        for curve in self.metabolismSeries:
-            self.canvas.create_line(*curve, fill='blue')
-        for curve in self.visionSeries:
-            self.canvas.create_line(*curve, fill='red')
-        self.root.mainloop()

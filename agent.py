@@ -35,8 +35,8 @@ class Agent:
     def getEnv(self):
         return self.env
     
-    def setLocation(self, xxx_todo_changeme):
-        (x, y) = xxx_todo_changeme
+    def setLocation(self, location):
+        (x, y) = location
         self.x = x
         self.y = y
 
@@ -82,8 +82,8 @@ class Agent:
     def setFertility(self, fertility):
         self.fertility = fertility
         
-    def setTags(self, xxx_todo_changeme1):
-        (tags, tagsLength) = xxx_todo_changeme1
+    def setTags(self, tags):
+        (tags, tagsLength) = tags
         self.tags = tags
         self.tagsLength = tagsLength
         self.tribe = round(float(bin(tags).count('1')) / float(tagsLength))
@@ -213,9 +213,9 @@ class Agent:
         return None
     
     # Cross-over offspring from two parents: parent1 and parent2
-    def createChild(self, parent, xxx_todo_changeme2):
+    def createChild(self, parent, childLocation):
         # cross-over parents genetics
-        (x, y) = xxx_todo_changeme2
+        (x, y) = childLocation
         genitors = [self, parent]
         metabolism = genitors[random.randint(0,1)].metabolism
         vision = genitors[random.randint(0,1)].vision

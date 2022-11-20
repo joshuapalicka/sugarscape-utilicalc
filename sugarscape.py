@@ -4,15 +4,15 @@ Created on 2010-04-17
 @author: rv
 '''
 
-import pygame
-from pygame.locals import *
 import random
+import time
 from itertools import product
 from environment import Environment
 from agent import Agent
 from wdgPopulation import WdgPopulation
 from wdgWealth import WdgWealth
 from wdgAgent import WdgAgent
+from tkinter import *
 
 ''' 
 initial simulation parameters
@@ -22,25 +22,27 @@ initial simulation parameters
 screenSize = 600, 600
 colorBackground = 250, 250, 250
 
-colorSugar = ((250, 250, 220),
-              (250, 250, 200),
-              (250, 250, 180),
-              (250, 250, 160),
-              (250, 250, 140),
-              (250, 250, 120),
-              (250, 250, 100),
-              (250, 250, 80),
-              (250, 250, 60),
-              (250, 250, 40))
+colorSugar = (("#FAFAB4",
+               "#FAFAC8",
+               "#FAFAB4",
+               "#FAFAA0",
+               "#FAFA8C",
+               "#FAFA78",
+               "#FAFA64",
+               "#FAFA50",
+               "#FAFA3C",
+               "#FAFA28"))
 
-colorRed = 250, 50, 50
-colorPink = 250, 50, 250
-colorBlue = 50, 50, 250
+colorRed = "#FA3232"
+
+colorPink = "#FA32FA"
+
+colorBlue = "#3232FA"
 
 # environment
-gridSize = 50, 50
+gridSize = 50, 50 # TODO: test changes in grid size with perf.
 northSite = 40, 10, 20
-southSite = 15, 35, 20
+southSite = 15, 35, 20 # TODO: balance?
 maxCapacity = 10  # !!! < or = nbr items in colorSugar array
 seasonPeriod = 50
 northRegion = 0, 0, 49, 24
@@ -237,10 +239,10 @@ class View:
     # this gets called first
     def __init__(self, screenSize, env, agents):
         # init view
-        pygame.init()
-        pygame.display.set_caption("Sugarscape")
-        self.screenSize = screenSize
-        self.screen = pygame.display.set_mode(screenSize)
+        self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
+        self.window, self.canvas = None, None
+        self.height, self.width = screenSize[0] + 5, screenSize[1] + 5
+        self.update = None
         self.quit = False
         self.siteSize = screenSize[0] / env.gridWidth
         self.radius = int(self.siteSize * 0.5)
@@ -254,7 +256,7 @@ class View:
         self.visionMean = []
         # init time
         self.iteration = 0
-        self.clock = pygame.time.Clock()
+        self.grid = [[0 for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
 
     # display agent switch case (dictionary)
     def all(self, agent):
@@ -292,7 +294,7 @@ class View:
         getTribe = lambda x, y: round(float(bin(x).count('1')) / float(y))
         tribe = getTribe(tags, tagsLength)
         for (n, t, d) in distributions:
-            if t != None and getTribe(t, tagsLength) == tribe:
+            if t is not None and getTribe(t, tagsLength) == tribe:
                 # found a distribution for tags
                 return d
         else:
@@ -313,7 +315,7 @@ class View:
             self.agents.remove(agent)
 
     # put game update code here
-    def update(self):
+    def updateGame(self):
         # for agents' logs
         metabolism = 0
         vision = 0
@@ -326,7 +328,7 @@ class View:
             # MOVE
             if ruleMoveEat:
                 agent.move()
-                # remove agent if he's dead
+                # remove agent if they're dead
                 if agent.getSugar() == 0:
                     # free environment
                     self.env.setAgent(agent.getLocation(), None)
@@ -341,7 +343,7 @@ class View:
                 if killed:
                     # do not free the environment, someone else is already here
                     self.removeAgent(killed)
-                # remove agent if he's dead
+                # remove agent if they're dead
                 if agent.getSugar() == 0:
                     # free environment
                     self.env.setAgent(agent.getLocation(), None)
@@ -369,7 +371,7 @@ class View:
 
             # DIE
             # increment age
-            alive = agent.incAge();
+            alive = agent.incAge()
             if ruleLimitedLife and not alive:
                 # free environment
                 self.env.setAgent(agent.getLocation(), None)
@@ -404,89 +406,124 @@ class View:
             self.season = "NA"
             self.env.grow(growFactor)
 
-    # put drawing code here
-    def draw(self):
-        self.screen.fill(colorBackground)
+        # print("update time: ", round(time.time() - start, 5))
 
-        # display sugarscape
+    def draw(self):
+        for i in range(len(self.grid)):
+            for j in range(len(self.grid[i])):
+                # display sugar's capacity
+                capacity = env.getCapacity((i, j))
+                agent = env.getAgent((i, j))
+                # change color of site depending on what's on it
+                if agent:
+                    self.canvas.itemconfig(self.grid[i][j], fill=self.agentColorSchemes[agentColorScheme](self, agent))
+                else:
+                    self.canvas.itemconfig(self.grid[i][j], fill=colorSugar[capacity - 1] if capacity > 0 else "white")
+        self.canvas.pack()
+
+
+    # put drawing code here
+    def initialDraw(self):
+        # display Sugarscape
         for i, j in product(range(env.gridHeight), range(env.gridWidth)):
-            x = i * self.siteSize
-            y = j * self.siteSize
+            x1 = 5 + (.5 * self.siteSize) + i * self.siteSize - (.5 * self.siteSize)
+            y1 = 5 + (.5 * self.siteSize) + j * self.siteSize - (.5 * self.siteSize)
+            x2 = 5 + (.5 * self.siteSize) + i * self.siteSize + (.5 * self.siteSize)
+            y2 = 5 + (.5 * self.siteSize) + j * self.siteSize + (.5 * self.siteSize)
+
             # display sugar's capacity
             capacity = env.getCapacity((i, j))
-            if capacity > 0:
-                pygame.draw.rect(self.screen, colorSugar[capacity - 1], (x, y, self.siteSize - 1, self.siteSize - 1))
-
-            # Draw agent if any
             agent = env.getAgent((i, j))
-            if agent:
-                pygame.draw.circle(self.screen,
-                                   # select color scheme
-                                   self.agentColorSchemes.get(agentColorScheme)(self, agent),
-                                   (x + self.radius, y + self.radius),
-                                   self.radius - 1)
 
-        pygame.display.flip()
+            if agent:
+                self.grid[i][j] = self.canvas.create_rectangle(x1, y1, x2, y2,
+                                             fill=self.agentColorSchemes.get(agentColorScheme)(self, agent),
+                                             outline="#C0C0C0")
+            else:
+                self.grid[i][j] = self.canvas.create_rectangle(x1, y1, x2, y2,
+                                             fill=(colorSugar[capacity - 1] if capacity > 0 else "white"),
+                                             outline="#C0C0C0")
+        self.canvas.pack()
+
+    def setQuit(self):
+        self.quit = True
+
+    def setPause(self):
+        print("Pause: ", self.update)
+        self.update = not self.update
+
+    def createPopulationPlot(self):
+        self.popWidget = WdgPopulation(self.population, "Population time series", 1000, 300)
+
+    def createWealthPlot(self):
+        print("Create wealth plot")
+        self.wealthWidget = WdgWealth(self.agents, "Wealth histogram", 500, 500)
+
+    def createMetabolismPlot(self):
+        print("Create metabolism plot")
+        self.metabolismWidget = WdgAgent(self.metabolismMean, self.visionMean,
+                                         "Agents' metabolism and vision mean values", 1000, 300)
 
     # the main game loop
     def mainLoop(self):
-        dt = 0
-        framecount = 0
-        framerate = 0
-        update = False
+        self.update = True
+        self.window = Tk()
+        self.window.title("Sugarscape")
+        self.window.geometry("%dx%d" % (self.width + 5, self.height + 5))
+        self.window.resizable(True, True)
+        self.window.configure(background='white')
+        self.canvas = Canvas(self.window, width=self.width, height=self.height, bg='white')
+        last_time = time.time()
+
+        self.window.bind("<Escape>", lambda x: self.setQuit())
+        self.window.bind("<F1>", lambda x: self.createPopulationPlot())
+        self.window.bind("<F2>", lambda x: self.createWealthPlot())
+        self.window.bind("<F3>", lambda x: self.createMetabolismPlot())
+        self.window.bind("<F12>", lambda x: self.setPause())
+        self.initialDraw()
+
         while not self.quit:
-            t0 = pygame.time.get_ticks()
-            # handle events
-            for event in pygame.event.get():
-                if event.type == QUIT:
-                    self.quit = True
-
-                elif event.type == KEYDOWN:
-
-                    if event.key == K_F1:
-                        # Display agents' population widget
-                        widget = WdgPopulation(self.population, "Population time series", 1000, 300)
-                        widget.execute()
-
-                    elif event.key == K_F2:
-                        # Display agents' wealth widget 
-                        widget = WdgWealth(self.agents, "Wealth histogram", 500, 500)
-                        widget.execute()
-
-                    elif event.key == K_F3:
-                        # Display agents' wealth widget 
-                        widget = WdgAgent(self.metabolismMean, self.visionMean,
-                                          "Agents' metabolism and vision mean values", 1000, 300)
-                        widget.execute()
-
-                    elif event.key == K_F12:
-                        update = not update
-
             # update sugarscape
-            if update:
-                self.update()
+            if self.update:
+                self.updateGame()
                 self.iteration += 1
 
             # display sugarscape state
             self.draw()
 
-            # wait simulation step
-            self.clock.tick(fps)
+            self.window.update()
+
+            if self.popWidget:
+                self.popWidget.update(self.population)
+            if self.wealthWidget:
+                self.wealthWidget.update(self.agents)
+            if self.metabolismWidget:
+                self.metabolismWidget.update(self.metabolismMean, self.visionMean)
 
             # calculate and display the framerate
-            t1 = pygame.time.get_ticks()
-            dt += t1 - t0
-            framecount += 1
-            if dt >= 1000:
-                dt -= 1000
-                framerate = framecount
-                framecount = 0
+            time_now = time.time()
+            time_since_last_frame = time_now - last_time
+            framerate = int(round(1.0 / time_since_last_frame, 0))
+            last_time = time_now
 
             # display infos
-            if update:
+            if self.update:
                 print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
                       "; Population = ", len(self.agents), " -  press F12 to pause.")
 
+    # Generator that formats data in series
+    def createFormatSeries(self, xmin, ymin, xmax, ymax, dx, dy, data):
+        curve = []
+        x = xmin
+        for datum in data:
+            curve.append(x)
+            curve.append(ymin - datum * dy)
+            x += dx
+            if x >= xmax:
+                yield curve
+                curve = []
+                x = xmin
+        yield curve
 
 ''' 
 Main 
@@ -506,7 +543,7 @@ if __name__ == '__main__':
     if ruleGrow:
         env.grow(maxCapacity)
 
-    # create a lit of agents and place them in env
+    # create a list of agents and place them in env
     agents = []
     for (numAgents, tags, distribution) in distributions:
         for i in range(numAgents):
