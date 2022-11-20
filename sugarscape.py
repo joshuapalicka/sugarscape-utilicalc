@@ -43,8 +43,8 @@ colorBlue = "#3232FA"
 
 # environment
 gridSize = 50, 50 # TODO: test changes in grid size with perf.
-northSite = 40, 10, 20
-southSite = 15, 35, 20 # TODO: balance?
+northSite = 35, 15, 20
+southSite = 15, 35, 20
 maxCapacity = 10  # !!! < or = nbr items in colorSugar array
 seasonPeriod = 50
 northRegion = 0, 0, 49, 24
@@ -241,7 +241,7 @@ View Class
 class View:
 
     # this gets called first
-    def __init__(self, screenSize, env, agents, seed):
+    def __init__(self, screenSize, env, agents):
         # init view
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
         self.window, self.canvas = None, None
