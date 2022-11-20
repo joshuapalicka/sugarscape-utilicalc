@@ -18,6 +18,8 @@ from tkinter import *
 initial simulation parameters
 '''
 
+random.seed(0)
+
 # view
 screenSize = 600, 600
 colorBackground = 250, 250, 250
@@ -67,6 +69,8 @@ childbearing = fertility[0], fertility[1]  # female , male
 tagsLength = 5  # must be odd
 tags0 = 0
 tags1 = 2 ** tagsLength - 1
+
+
 
 ''' settings for Evolution from random distribution
 agentColorScheme = 0        
@@ -237,7 +241,7 @@ View Class
 class View:
 
     # this gets called first
-    def __init__(self, screenSize, env, agents):
+    def __init__(self, screenSize, env, agents, seed):
         # init view
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
         self.window, self.canvas = None, None
@@ -257,6 +261,7 @@ class View:
         # init time
         self.iteration = 0
         self.grid = [[0 for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
+
 
     # display agent switch case (dictionary)
     def all(self, agent):
