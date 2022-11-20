@@ -285,46 +285,6 @@ class Agent:
         # collect, eat and consume
         self.sugar = max(self.sugar + best - self.metabolism, 0)
         self.env.setCapacity((self.x, self.y), 0)
-
-    '''
-    # sort implementation
-    # (for the record: actually was slower so not used)
-    def compareLocations(self, (x1, y1), (x2, y2)):
-        c1 = self.env.getCapacity((x1, y1))
-        c2 = self.env.getCapacity((x2, y2))
-        if c1 - c2:
-            # bigger is better
-            return cmp(c1, c2)
-        else:
-            # Manhattan distance enough due to no diagonal
-            d1 = abs(x1 - self.x + y1 - self.y)
-            d2 = abs(x2 - self.x + y2 - self.y)
-            # shorter is better
-            return cmp(d2, d1)
-    
-    def moveSort(self):
-        # build a list of available food locations
-        food = getFood()
-        
-        # randomize food locations
-        random.shuffle(food)
-
-        if len(food):
-            # add existing location (self.x, self.y) => currently not in food
-            food.extend([(self.x, self.y)])
-            # randomize food locations
-            random.shuffle(food)
-            # sort by capacity and distance
-            food.sort(cmp = self.compareLocations, reverse = True)
-            # move to best location
-            (newx, newy) = food[0]
-            self.env.setAgent((self.x, self.y), None)
-            self.env.setAgent((newx, newy), self)
-            self.x = newx
-            self.y = newy
-            # collect, eat and consume
-            self.sugar = max(self.sugar + self.env.getCapacity(self.x, self.y) - self.metabolism, 0)
-            self.env.setCapacity((self.x, self.y), 0)'''
         
     # COMBAT
     def combat(self, alpha):
