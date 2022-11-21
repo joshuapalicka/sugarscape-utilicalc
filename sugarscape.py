@@ -12,7 +12,7 @@ from agent import Agent
 from wdgPopulation import WdgPopulation
 from wdgWealth import WdgWealth
 from wdgAgent import WdgAgent
-from tkinter import *
+import tkinter as tk
 
 ''' 
 initial simulation parameters
@@ -42,7 +42,7 @@ colorPink = "#FA32FA"
 colorBlue = "#3232FA"
 
 # environment
-gridSize = 50, 50 # TODO: test changes in grid size with perf.
+gridSize = 50, 50
 northSite = 35, 15, 20
 southSite = 15, 35, 20
 maxCapacity = 10  # !!! < or = nbr items in colorSugar array
@@ -69,8 +69,6 @@ childbearing = fertility[0], fertility[1]  # female , male
 tagsLength = 5  # must be odd
 tags0 = 0
 tags1 = 2 ** tagsLength - 1
-
-
 
 ''' settings for Evolution from random distribution
 agentColorScheme = 0        
@@ -192,6 +190,7 @@ ruleProcreate = False
 ruleTransmit = True
 combatAlpha = 1000000'''
 
+
 # settings for Proto-History
 agentColorScheme = 4
 distributions = [
@@ -206,6 +205,7 @@ ruleReplacement = False
 ruleProcreate = True
 ruleTransmit = True
 combatAlpha = 1000000
+
 
 fps = 10
 
@@ -260,8 +260,7 @@ class View:
         self.visionMean = []
         # init time
         self.iteration = 0
-        self.grid = [[0 for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
-
+        self.grid = [[(0, "") for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
 
     # display agent switch case (dictionary)
     def all(self, agent):
@@ -411,43 +410,43 @@ class View:
             self.season = "NA"
             self.env.grow(growFactor)
 
-        # print("update time: ", round(time.time() - start, 5))
-
     def draw(self):
-        for i in range(len(self.grid)):
-            for j in range(len(self.grid[i])):
+        for row in range(len(self.grid)):
+            for col in range(len(self.grid[row])):
                 # display sugar's capacity
-                capacity = env.getCapacity((i, j))
-                agent = env.getAgent((i, j))
-                # change color of site depending on what's on it
+                capacity = env.getCapacity((row, col))
+                agent = env.getAgent((row, col))
+                # change color of site depending on what's on it - but only if it wasn't already that color
                 if agent:
-                    self.canvas.itemconfig(self.grid[i][j], fill=self.agentColorSchemes[agentColorScheme](self, agent))
+                    agent_color = self.agentColorSchemes[agentColorScheme](self, agent)
+                    if self.grid[row][col][1] != agent_color:
+                        self.canvas.itemconfig(self.grid[row][col][0], fill=agent_color)
+                        self.grid[row][col] = (self.grid[row][col][0], agent_color)
                 else:
-                    self.canvas.itemconfig(self.grid[i][j], fill=colorSugar[capacity - 1] if capacity > 0 else "white")
+                    fill_color = colorSugar[capacity - 1] if capacity > 0 else "white"
+                    if self.grid[row][col][1] != fill_color:
+                        self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
+                        self.grid[row][col] = (self.grid[row][col][0], fill_color)
         self.canvas.pack()
-
 
     # put drawing code here
     def initialDraw(self):
         # display Sugarscape
-        for i, j in product(range(env.gridHeight), range(env.gridWidth)):
-            x1 = 5 + (.5 * self.siteSize) + i * self.siteSize - (.5 * self.siteSize)
-            y1 = 5 + (.5 * self.siteSize) + j * self.siteSize - (.5 * self.siteSize)
-            x2 = 5 + (.5 * self.siteSize) + i * self.siteSize + (.5 * self.siteSize)
-            y2 = 5 + (.5 * self.siteSize) + j * self.siteSize + (.5 * self.siteSize)
+        for row, col in product(range(env.gridHeight), range(env.gridWidth)):
+            x1 = 5 + (.5 * self.siteSize) + row * self.siteSize - (.5 * self.siteSize)
+            y1 = 5 + (.5 * self.siteSize) + col * self.siteSize - (.5 * self.siteSize)
+            x2 = 5 + (.5 * self.siteSize) + row * self.siteSize + (.5 * self.siteSize)
+            y2 = 5 + (.5 * self.siteSize) + col * self.siteSize + (.5 * self.siteSize)
 
             # display sugar's capacity
-            capacity = env.getCapacity((i, j))
-            agent = env.getAgent((i, j))
-
+            capacity = env.getCapacity((row, col))
+            agent = env.getAgent((row, col))
             if agent:
-                self.grid[i][j] = self.canvas.create_rectangle(x1, y1, x2, y2,
-                                             fill=self.agentColorSchemes.get(agentColorScheme)(self, agent),
-                                             outline="#C0C0C0")
+                agent_color = self.agentColorSchemes[agentColorScheme](self, agent)
+                self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=agent_color, outline="#C0C0C0"), agent_color)
             else:
-                self.grid[i][j] = self.canvas.create_rectangle(x1, y1, x2, y2,
-                                             fill=(colorSugar[capacity - 1] if capacity > 0 else "white"),
-                                             outline="#C0C0C0")
+                fill_color = colorSugar[capacity - 1] if capacity > 0 else "white"
+                self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
         self.canvas.pack()
 
     def setQuit(self):
@@ -470,15 +469,14 @@ class View:
                                          "Agents' metabolism and vision mean values", 1000, 300)
 
     # the main game loop
-    def mainLoop(self):
+    def createWindow(self):
         self.update = True
-        self.window = Tk()
+        self.window = tk.Tk()
         self.window.title("Sugarscape")
         self.window.geometry("%dx%d" % (self.width + 5, self.height + 5))
         self.window.resizable(True, True)
         self.window.configure(background='white')
-        self.canvas = Canvas(self.window, width=self.width, height=self.height, bg='white')
-        last_time = time.time()
+        self.canvas = tk.Canvas(self.window, width=self.width, height=self.height, bg='white')
 
         self.window.bind("<Escape>", lambda x: self.setQuit())
         self.window.bind("<F1>", lambda x: self.createPopulationPlot())
@@ -486,35 +484,37 @@ class View:
         self.window.bind("<F3>", lambda x: self.createMetabolismPlot())
         self.window.bind("<F12>", lambda x: self.setPause())
         self.initialDraw()
+        self.window.after(1, self.updateWindow())
+        self.window.mainloop()
 
-        while not self.quit:
-            # update sugarscape
-            if self.update:
-                self.updateGame()
-                self.iteration += 1
+    def updateWindow(self):
+        last_time = time.time()
+        # update sugarscape
+        if self.update:
+            self.updateGame()
+            self.iteration += 1
 
-            # display sugarscape state
-            self.draw()
+        # display sugarscape state
+        self.draw()
+        self.window.update()
 
-            self.window.update()
+        if self.popWidget:
+            self.popWidget.update(self.population)
+        if self.wealthWidget:
+            self.wealthWidget.update(self.agents)
+        if self.metabolismWidget:
+            self.metabolismWidget.update(self.metabolismMean, self.visionMean)
 
-            if self.popWidget:
-                self.popWidget.update(self.population)
-            if self.wealthWidget:
-                self.wealthWidget.update(self.agents)
-            if self.metabolismWidget:
-                self.metabolismWidget.update(self.metabolismMean, self.visionMean)
+        # calculate and display the framerate
+        time_now = time.time()
+        time_since_last_frame = time_now - last_time
+        framerate = int(round(1.0 / time_since_last_frame, 0))
 
-            # calculate and display the framerate
-            time_now = time.time()
-            time_since_last_frame = time_now - last_time
-            framerate = int(round(1.0 / time_since_last_frame, 0))
-            last_time = time_now
-
-            # display infos
-            if self.update:
-                print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
-                      "; Population = ", len(self.agents), " -  press F12 to pause.")
+        # display infos
+        if self.update:
+            print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
+                  "; Population = ", len(self.agents), " -  press F12 to pause.")
+        self.updateWindow()
 
     # Generator that formats data in series
     def createFormatSeries(self, xmin, ymin, xmax, ymax, dx, dy, data):
@@ -529,6 +529,7 @@ class View:
                 curve = []
                 x = xmin
         yield curve
+
 
 ''' 
 Main 
@@ -561,4 +562,4 @@ if __name__ == '__main__':
     view = View(screenSize, env, agents)
 
     # iterate
-    view.mainLoop()
+    view.createWindow()
