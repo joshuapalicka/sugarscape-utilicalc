@@ -15,6 +15,11 @@ class WdgAgent:
         '''
         Constructor
         '''
+
+        self.X = None
+        self.Y = None
+        self.metabolismSeries = None
+        self.visionSeries = None
         self.root = Toplevel()
         self.root.protocol("WM_DELETE_WINDOW", self.root.iconify)
         self.root.title(title)
@@ -68,7 +73,6 @@ class WdgAgent:
             self.canvas.create_line(*curve, fill='blue')
         for curve in self.visionSeries:
             self.canvas.create_line(*curve, fill='red')
-
 
     # Generator that formats data in series
     def createFormatSeries(self, xmin, ymin, xmax, ymax, dx, dy, data):
