@@ -29,6 +29,10 @@ class WdgAgent:
         self.height = height
         self.update(metabolismMean, visionMean)
 
+    def makeWider(self):
+        self.width += 100
+        self.canvas.config(width=self.width)
+
     def update(self, metabolismMean, visionMean):
         self.canvas.delete("all")
         # Create axis

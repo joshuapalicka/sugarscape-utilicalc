@@ -260,7 +260,7 @@ class View:
         self.visionMean = []
         # init time
         self.iteration = 0
-        self.grid = [[(0, "") for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
+        self.grid = [[(None, None) for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
 
     # display agent switch case (dictionary)
     def all(self, agent):
@@ -484,52 +484,43 @@ class View:
         self.window.bind("<F3>", lambda x: self.createMetabolismPlot())
         self.window.bind("<F12>", lambda x: self.setPause())
         self.initialDraw()
-        self.window.after(1, self.updateWindow())
-        self.window.mainloop()
-
-    def updateWindow(self):
-        last_time = time.time()
-        # update sugarscape
-        if self.update:
-            self.updateGame()
-            self.iteration += 1
-
-        # display sugarscape state
-        self.draw()
-        self.window.update()
-
-        if self.popWidget:
-            self.popWidget.update(self.population)
-        if self.wealthWidget:
-            self.wealthWidget.update(self.agents)
-        if self.metabolismWidget:
-            self.metabolismWidget.update(self.metabolismMean, self.visionMean)
-
-        # calculate and display the framerate
-        time_now = time.time()
-        time_since_last_frame = time_now - last_time
-        framerate = int(round(1.0 / time_since_last_frame, 0))
-
-        # display infos
-        if self.update:
-            print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
-                  "; Population = ", len(self.agents), " -  press F12 to pause.")
         self.updateWindow()
 
-    # Generator that formats data in series
-    def createFormatSeries(self, xmin, ymin, xmax, ymax, dx, dy, data):
-        curve = []
-        x = xmin
-        for datum in data:
-            curve.append(x)
-            curve.append(ymin - datum * dy)
-            x += dx
-            if x >= xmax:
-                yield curve
-                curve = []
-                x = xmin
-        yield curve
 
+    def updateWindow(self):
+        while not self.quit:
+            last_time = time.time()
+            # update sugarscape
+            if self.update:
+                self.updateGame()
+                self.iteration += 1
+
+            # display sugarscape state
+            self.draw()
+            self.window.update()
+
+            if self.popWidget:
+                self.popWidget.update(self.population)
+                if self.iteration >= 900 and self.iteration % 100 == 0:
+                    self.popWidget.makeWider()
+
+            if self.wealthWidget:
+                self.wealthWidget.update(self.agents)
+
+            if self.metabolismWidget:
+                self.metabolismWidget.update(self.metabolismMean, self.visionMean)
+                if self.iteration >= 900 and self.iteration % 100 == 0:
+                    self.metabolismWidget.makeWider()
+
+            # calculate and display the framerate
+            time_now = time.time()
+            time_since_last_frame = time_now - last_time
+            framerate = int(round(1.0 / time_since_last_frame, 0))
+
+            # display infos
+            if self.update:
+                print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
+                      "; Population = ", len(self.agents), " -  press F12 to pause.")
 
 ''' 
 Main 

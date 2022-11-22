@@ -6,26 +6,28 @@ Created on 2010-05-03
 
 from tkinter import *
 
+
 class WdgPopulation:
     '''
     classdocs
     '''
 
-    def __init__(self, populationSeries, title = "Population time series", width = 600, height = 300):
+    def __init__(self, populationSeries, title="Population time series", width=600, height=300):
         '''
         Constructor
         '''
         self.root = Toplevel()
         self.root.protocol("WM_DELETE_WINDOW", self.root.iconify)
         self.root.title(title)
-        self.canvas = Canvas(self.root, width = width, height = height)
+        self.canvas = Canvas(self.root, width=width, height=height)
         self.canvas.pack()
         self.width = width
         self.height = height
         self.update(populationSeries)
 
-
-
+    def makeWider(self):
+        self.width += 100
+        self.canvas.config(width=self.width)
 
     def update(self, populationSeries):
         self.canvas.delete("all")
@@ -38,6 +40,7 @@ class WdgPopulation:
         # Create population time series
         maxPopulation = max(populationSeries)
         incry = float(self.height - 100) / maxPopulation
+
         self.series = []
         curve = []
         x = x0
