@@ -1,8 +1,10 @@
-sugarscape
+<h1 align="center">sugarscape</h1>
 ==========
 
-My implementation in Python of Epstein and Axtell's large scale agent-based computational model, the Sugarscape, to explore the role of social phenomenon such as seasonal migrations, pollution, sexual reproduction, combat, and transmission of disease and even culture.  
+Python implementation of Epstein and Axtell's large scale agent-based computational model, the Sugarscape, to explore the role of social phenomenon such as seasonal migrations, pollution, sexual reproduction, combat, and transmission of disease and even culture.  
 In other words: Cellular Automata + Agents = Sugarscape.
+
+Code based on previous work by Hervé Lange: https://github.com/langerv/sugarscape
 
 ### Results
 
