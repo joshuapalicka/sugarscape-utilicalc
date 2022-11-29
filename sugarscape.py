@@ -24,7 +24,8 @@ random.seed(0)
 screenSize = 600, 600
 colorBackground = 250, 250, 250
 
-colorSugar = (("#FAFAB4",
+# yellow shades
+colorSugar = (("#ffffff",
                "#FAFAC8",
                "#FAFAB4",
                "#FAFAA0",
@@ -35,6 +36,21 @@ colorSugar = (("#FAFAB4",
                "#FAFA3C",
                "#FAFA28"))
 
+# orange shades
+colorSpice = (("#ffffff",
+               "#f9ebe5",
+               "#f3d7ca",
+               "#eec3b0",
+               "#e8af96",
+               "#e29b7b",
+               "#dc8761",
+               "#d77347",
+               "#b55328",
+               "#9B4722"))
+
+
+
+
 colorRed = "#FA3232"
 
 colorPink = "#FA32FA"
@@ -43,8 +59,23 @@ colorBlue = "#3232FA"
 
 # environment
 gridSize = 50, 50
-northSite = 35, 15, 20
-southSite = 15, 35, 20
+northSite = 38, 12, 13
+southSite = 12, 38, 13
+
+westSite = 12, 12, 13
+eastSite = 38, 38, 13
+
+"""
+Non-touching circles:
+
+northSite = 38, 12, 12 
+southSite = 12, 38, 12
+
+westSite = 12, 12, 12
+eastSite = 38, 38, 12
+
+"""
+
 maxCapacity = 10  # !!! < or = nbr items in colorSugar array
 seasonPeriod = 50
 northRegion = 0, 0, 49, 24
@@ -54,7 +85,7 @@ growFactor1 = 1
 growFactor2 = float(growFactor1) / 8
 
 # agents
-# agentColorScheme: Agents colour meaning = 0:all, 1:bySexe, 2:byMetabolism, 3:byVision, 4:byGroup
+# agentColorScheme: Agents colour meaning = 0:all, 1:bySex, 2:byMetabolism, 3:byVision, 4:byGroup
 maxAgentMetabolism = 4
 maxAgentVision = 6
 initEndowment = 50, 100
@@ -204,6 +235,7 @@ ruleLimitedLife = True
 ruleReplacement = False
 ruleProcreate = True
 ruleTransmit = True
+ruleSpice = True
 combatAlpha = 1000000
 
 
@@ -220,13 +252,17 @@ def initAgent(agent, tags, distribution):
         return False
     agent.setLocation(newLocation)
     agent.setMetabolism(random.randint(1, maxAgentMetabolism))
+    if ruleSpice:
+        agent.setMetabolism(random.randint(1, maxAgentMetabolism), sugar=False)
+        agent.setInitialEndowment(random.randint(initEndowment[0], initEndowment[1]), sugar=False)
+
     agent.setVision(random.randint(1, maxAgentVision))
     agent.setInitialEndowment(random.randint(initEndowment[0], initEndowment[1]))
     agent.setAge(random.randint(minmaxAgentAge[0], minmaxAgentAge[1]))
-    sexe = random.randint(0, 1)
-    agent.setSexe(sexe)
-    agent.setFertility((random.randint(childbearing[sexe][0], childbearing[sexe][1]),
-                        random.randint(childbearing[sexe][2], childbearing[sexe][3])))
+    sex = random.randint(0, 1)
+    agent.setSex(sex)
+    agent.setFertility((random.randint(childbearing[sex][0], childbearing[sex][1]),
+                        random.randint(childbearing[sex][2], childbearing[sex][3])))
     if tags == None:
         tags = random.getrandbits(tagsLength)
     agent.setTags((tags, tagsLength))
@@ -266,8 +302,8 @@ class View:
     def all(self, agent):
         return colorRed
 
-    def bySexe(self, agent):
-        if agent.getSexe() == female:
+    def bySex(self, agent):
+        if agent.getSex() == female:
             return colorPink
         else:
             return colorBlue
@@ -291,7 +327,7 @@ class View:
         else:
             return colorBlue
 
-    agentColorSchemes = {0: all, 1: bySexe, 2: byMetabolism, 3: byVision, 4: byGroup}
+    agentColorSchemes = {0: all, 1: bySex, 2: byMetabolism, 3: byVision, 4: byGroup}
 
     # remove or replace agent
     def findDistribution(self, tags):
@@ -408,25 +444,41 @@ class View:
                     self.env.growRegion(southRegion, growFactor1)
         elif ruleGrow:
             self.season = "NA"
-            self.env.grow(growFactor)
+            if ruleSpice:
+                self.env.grow(growFactor, sugar=False)
+            else:
+                self.env.grow(growFactor)
 
     def draw(self):
         for row in range(len(self.grid)):
             for col in range(len(self.grid[row])):
                 # display sugar's capacity
-                capacity = env.getCapacity((row, col))
+                sugarCapacity = env.getCapacity((row, col))
                 agent = env.getAgent((row, col))
-                # change color of site depending on what's on it - but only if it wasn't already that color
+                # change color of site depending on what's on it - but only if it wasn't already that color (performance optimization)
                 if agent:
                     agent_color = self.agentColorSchemes[agentColorScheme](self, agent)
                     if self.grid[row][col][1] != agent_color:
                         self.canvas.itemconfig(self.grid[row][col][0], fill=agent_color)
                         self.grid[row][col] = (self.grid[row][col][0], agent_color)
                 else:
-                    fill_color = colorSugar[capacity - 1] if capacity > 0 else "white"
-                    if self.grid[row][col][1] != fill_color:
-                        self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
-                        self.grid[row][col] = (self.grid[row][col][0], fill_color)
+                    if not ruleSpice:
+                        fill_color = colorSugar[sugarCapacity - 1] if sugarCapacity > 0 else "white"
+                        if self.grid[row][col][1] != fill_color:
+                            self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
+                            self.grid[row][col] = (self.grid[row][col][0], fill_color)
+                    else:
+                        spiceCapacity = env.getCapacity((row, col), sugar=False)
+                        if sugarCapacity > 0:
+                            fill_color = colorSugar[sugarCapacity - 1]
+                        elif spiceCapacity > 0:
+                            fill_color = colorSpice[spiceCapacity - 1]
+                        else:
+                            fill_color = "white"
+
+                        if self.grid[row][col][1] != fill_color:
+                            self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
+                            self.grid[row][col] = (self.grid[row][col][0], fill_color)
         self.canvas.pack()
 
     # put drawing code here
@@ -445,8 +497,19 @@ class View:
                 agent_color = self.agentColorSchemes[agentColorScheme](self, agent)
                 self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=agent_color, outline="#C0C0C0"), agent_color)
             else:
-                fill_color = colorSugar[capacity - 1] if capacity > 0 else "white"
-                self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
+                if not ruleSpice:
+                    fill_color = colorSugar[capacity - 1] if capacity > 0 else "white"
+                    self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
+                else:
+                    spiceCapacity = env.getCapacity((row, col), sugar=False)
+                    print(spiceCapacity, capacity)
+                    if capacity > 0:
+                        fill_color = colorSugar[capacity - 1]
+                    elif spiceCapacity > 0:
+                        fill_color = colorSpice[spiceCapacity - 1]
+                    else:
+                        fill_color = "white"
+                    self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
         self.canvas.pack()
 
     def setQuit(self):
@@ -531,14 +594,21 @@ if __name__ == '__main__':
     env = Environment(gridSize)
 
     # add radial food site 
-    env.addFoodSite(northSite, maxCapacity)
+    env.addSugarSite(northSite, maxCapacity)
 
     # add radial food site 
-    env.addFoodSite(southSite, maxCapacity)
+    env.addSugarSite(southSite, maxCapacity)
+
+    if ruleSpice:
+        # add radial food site
+        env.addSpiceSite(eastSite, maxCapacity)
+
+        # add radial food site
+        env.addSpiceSite(westSite, maxCapacity)
 
     # grow to max capacity
     if ruleGrow:
-        env.grow(maxCapacity)
+        env.grow(maxCapacity, sugar=True if not ruleSpice else False)
 
     # create a list of agents and place them in env
     agents = []
