@@ -18,7 +18,7 @@ import tkinter as tk
 initial simulation parameters
 '''
 
-random.seed(0)
+
 
 # view
 screenSize = 600, 600
@@ -236,10 +236,12 @@ ruleReplacement = False
 ruleProcreate = True
 ruleTransmit = True
 ruleSpice = True
+isRandom = False
 combatAlpha = 1000000
 
 
-fps = 10
+if not isRandom:
+    random.seed(0)
 
 ''' 
 Global functions
@@ -375,6 +377,11 @@ class View:
                     # remove or replace agent
                     self.removeAgent(agent)
                     continue
+                if ruleSpice:
+                    if agent.getSpice() == 0:
+                        self.env.setAgent(agent.getLocation(), None)
+                        self.removeAgent(agent)
+                        continue
 
             # COMBAT
             if ruleCombat:
