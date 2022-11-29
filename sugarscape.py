@@ -25,31 +25,12 @@ screenSize = 600, 600
 colorBackground = 250, 250, 250
 
 # yellow shades
-colorSugar = (("#ffffff",
-               "#FAFAC8",
-               "#FAFAB4",
-               "#FAFAA0",
-               "#FAFA8C",
-               "#FAFA78",
-               "#FAFA64",
-               "#FAFA50",
-               "#FAFA3C",
-               "#FAFA28"))
 
-# orange shades
-colorSpice = (("#ffffff",
-               "#f9ebe5",
-               "#f3d7ca",
-               "#eec3b0",
-               "#e8af96",
-               "#e29b7b",
-               "#dc8761",
-               "#d77347",
-               "#b55328",
-               "#9B4722"))
+colorSugar = "#FAFA28"
 
+colorSpice = "#9B4722"
 
-
+colorBoth = "#BF8232"
 
 colorRed = "#FA3232"
 
@@ -59,11 +40,11 @@ colorBlue = "#3232FA"
 
 # environment
 gridSize = 50, 50
-northSite = 38, 12, 13
-southSite = 12, 38, 13
+northSite = 38, 12, 15
+southSite = 12, 38, 15
 
-westSite = 12, 12, 13
-eastSite = 38, 38, 13
+westSite = 12, 12, 15
+eastSite = 38, 38, 15
 
 """
 Non-touching circles:
@@ -246,6 +227,24 @@ if not isRandom:
 ''' 
 Global functions
 '''
+
+def hexToRGB(hex):
+    """ #FFFFFF -> (255, 255, 255) """
+    hex = hex.lstrip('#')
+    hlen = len(hex)
+    return tuple(int(hex[i:i + hlen // 3], 16) for i in range(0, hlen, hlen // 3))
+
+
+def RGBToHex(rgb):
+    """ (255, 255, 255) -> #FFFFFF """
+    return '#%02x%02x%02x' % rgb
+
+
+def lightenColor(color, amountAtLocation):
+    """ lighten color by factor """
+    factor = amountAtLocation / maxCapacity
+    rgb = hexToRGB(color)
+    return RGBToHex(tuple(int(c + (255 - c) * factor) for c in rgb))
 
 
 def initAgent(agent, tags, distribution):
@@ -470,16 +469,18 @@ class View:
                         self.grid[row][col] = (self.grid[row][col][0], agent_color)
                 else:
                     if not ruleSpice:
-                        fill_color = colorSugar[sugarCapacity - 1] if sugarCapacity > 0 else "white"
+                        fill_color = lightenColor(colorSugar, sugarCapacity)
                         if self.grid[row][col][1] != fill_color:
                             self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
                             self.grid[row][col] = (self.grid[row][col][0], fill_color)
                     else:
                         spiceCapacity = env.getCapacity((row, col), sugar=False)
-                        if sugarCapacity > 0:
-                            fill_color = colorSugar[sugarCapacity - 1]
+                        if sugarCapacity > 0 and spiceCapacity > 0:
+                            fill_color = lightenColor(colorBoth, (sugarCapacity+spiceCapacity)/2)
+                        elif sugarCapacity > 0:
+                            fill_color = lightenColor(colorSugar, sugarCapacity)
                         elif spiceCapacity > 0:
-                            fill_color = colorSpice[spiceCapacity - 1]
+                            fill_color = lightenColor(colorSpice, spiceCapacity)
                         else:
                             fill_color = "white"
 
@@ -498,22 +499,21 @@ class View:
             y2 = 5 + (.5 * self.siteSize) + col * self.siteSize + (.5 * self.siteSize)
 
             # display sugar's capacity
-            capacity = env.getCapacity((row, col))
+            sugarCapacity = env.getCapacity((row, col))
             agent = env.getAgent((row, col))
             if agent:
                 agent_color = self.agentColorSchemes[agentColorScheme](self, agent)
                 self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=agent_color, outline="#C0C0C0"), agent_color)
             else:
                 if not ruleSpice:
-                    fill_color = colorSugar[capacity - 1] if capacity > 0 else "white"
+                    fill_color = lightenColor(colorSugar, sugarCapacity)
                     self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
                 else:
                     spiceCapacity = env.getCapacity((row, col), sugar=False)
-                    print(spiceCapacity, capacity)
-                    if capacity > 0:
-                        fill_color = colorSugar[capacity - 1]
+                    if sugarCapacity > 0:
+                        fill_color = lightenColor(colorSugar, sugarCapacity)
                     elif spiceCapacity > 0:
-                        fill_color = colorSpice[spiceCapacity - 1]
+                        fill_color = lightenColor(colorSpice, spiceCapacity)
                     else:
                         fill_color = "white"
                     self.grid[row][col] = (self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
