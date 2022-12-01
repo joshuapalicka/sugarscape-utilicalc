@@ -266,10 +266,27 @@ class Agent:
             mask <<= 1
 
         # create child agent TODO: Spice?
-        child = Agent(self.env, x, y, sugarMetabolism, spiceMetabolism, vision, sugarEndowment, spiceEndowment, ageMax, sex, fertility,
+        child = Agent(self.env, x, y, sugarMetabolism, spiceMetabolism, vision, sugarEndowment, spiceEndowment, ageMax,
+                      sex, fertility,
                       (childTags, self.tagsLength))
         self.env.setAgent((x, y), child)
         return child
+
+    def getWelfare(self, x, y):
+        # agent welfare function to determine if we need to find spice or sugar
+        # this formula is based on page 97 of the book "Growing Artificial Societies" by Epstein and Axtell
+        m1 = self.sugarMetabolism
+        m2 = self.spiceMetabolism
+
+        x1 = self.env.getCapacity((x, y))
+        x2 = self.env.getCapacity((x, y), sugar=False)
+
+        w1 = self.sugar + x1
+        w2 = self.spice + x2
+
+        mt = m1 + m2
+
+        return w1 ** (m1 / mt) * w2 ** (m2 / mt)
 
     # MOVE:
     # Look out as far as vision permits in the four principal lattice directions and identify the unoccupied site(s) having the most sugar.
@@ -279,28 +296,58 @@ class Agent:
     # Increment the agent's accumulated sugar wealth by the sugar collected and decrement by the agent's metabolic rate.
 
     def move(self):
-        # build a list of available food locations
-        food = self.getFood()
-
-        # randomize food locations
-        random.shuffle(food)
-
         # find best food location
         # much faster than sorting.
         move = False
         newx = self.x
         newy = self.y
-        best = self.env.getCapacity((self.x, self.y))
-        minDistance = 0
-        for (x, y) in food:
-            capacity = self.env.getCapacity((x, y))
-            distance = abs(x - self.x + y - self.y)  # Manhattan distance enough due to no diagonal
-            if capacity > best or (capacity == best and distance < minDistance):
-                best = capacity
-                minDistance = distance
+
+        # build a list of available food locations
+        food = self.getFood()
+
+        # randomize food locations
+        random.shuffle(food)
+        locations = []
+        food.append((self.x, self.y))
+
+        if not self.env.getHasSpice():
+            for (x, y) in food:
+                location = (x, y)
+                sugarCapacity = self.env.getCapacity((x, y))
+                distance = abs(x - self.x + y - self.y)  # Manhattan distance enough due to no diagonal
+                locations.append((location, sugarCapacity, distance))
+
+            locations.sort(key=lambda x: x[2])
+            best_location = max(locations, key=lambda x: x[1])
+
+            if best_location[0] != (self.x, self.y):
                 move = True
-                newx = x
-                newy = y
+                newx, newy = best_location[0]
+
+            best_sugar = best_location[1]
+            self.sugar = max(self.sugar + best_sugar - self.sugarMetabolism, 0)
+
+
+        else:
+            for (x, y) in food:
+                welfare = self.getWelfare(x, y)
+                location = (x, y)
+                sugarCapacity = self.env.getCapacity((x, y))
+                spiceCapacity = self.env.getCapacity((x, y), sugar=False)
+                distance = abs(x - self.x + y - self.y)  # Manhattan distance enough due to no diagonal
+                locations.append((welfare, location, sugarCapacity, spiceCapacity, distance))
+
+            locations.sort(key=lambda x: x[4])
+            best_location = max(locations, key=lambda x: x[0])
+            if best_location[1] != (self.x, self.y):
+                move = True
+                newx, newy = best_location[1]
+
+            best_sugar = best_location[2]
+            best_spice = best_location[3]
+
+            self.spice = max(self.spice + best_spice - self.spiceMetabolism, 0)
+            self.sugar = max(self.sugar + best_sugar - self.sugarMetabolism, 0)
 
         # move to new location if any
         if move:
@@ -310,8 +357,8 @@ class Agent:
             self.y = newy
 
         # collect, eat and consume
-        self.sugar = max(self.sugar + best - self.sugarMetabolism, 0)
         self.env.setCapacity((self.x, self.y), 0)
+        self.env.setCapacity((self.x, self.y), 0, True)
 
     # TODO: Implement spice with combat?
     # COMBAT
@@ -327,7 +374,7 @@ class Agent:
         food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
                      if preyA != preyB
                      and preyB.getSugar() < (
-                                 C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))])
+                             C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))])
 
         # randomize food locations
         random.shuffle(food)

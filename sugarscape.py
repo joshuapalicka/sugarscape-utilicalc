@@ -18,15 +18,13 @@ import tkinter as tk
 initial simulation parameters
 '''
 
-
-
 # view
 screenSize = 600, 600
 colorBackground = 250, 250, 250
 
 # yellow shades
 
-colorSugar = "#FAFA28"
+colorSugar = "#F2FA00"
 
 colorSpice = "#9B4722"
 
@@ -40,11 +38,11 @@ colorBlue = "#3232FA"
 
 # environment
 gridSize = 50, 50
-northSite = 38, 12, 15
-southSite = 12, 38, 15
+northSite = 35, 15, 18
+southSite = 15, 35, 18
 
-westSite = 12, 12, 15
-eastSite = 38, 38, 15
+westSite = 10, 10, 14
+eastSite = 40, 40, 14
 
 """
 Non-touching circles:
@@ -68,7 +66,7 @@ growFactor2 = float(growFactor1) / 8
 # agents
 # agentColorScheme: Agents colour meaning = 0:all, 1:bySex, 2:byMetabolism, 3:byVision, 4:byGroup
 maxAgentMetabolism = 4
-maxAgentVision = 6
+maxAgentVision = 10
 initEndowment = 50, 100
 minmaxAgentAge = 60, 100
 female = 0
@@ -206,8 +204,8 @@ combatAlpha = 1000000'''
 # settings for Proto-History
 agentColorScheme = 4
 distributions = [
-    (25, tags0, (0, 50, 0, 50)),  # blues
-    (25, tags1, (0, 50, 0, 50))]  # reds
+    (50, tags0, (0, 50, 0, 50)),  # blues
+    (50, tags1, (0, 50, 0, 50))]  # reds
 ruleGrow = True
 ruleSeasons = False
 ruleMoveEat = True
@@ -217,6 +215,7 @@ ruleReplacement = False
 ruleProcreate = True
 ruleTransmit = True
 ruleSpice = True
+ruleTrade = True
 isRandom = False
 combatAlpha = 1000000
 
@@ -244,7 +243,7 @@ def lightenColor(color, amountAtLocation):
     """ lighten color by factor """
     factor = amountAtLocation / maxCapacity
     rgb = hexToRGB(color)
-    return RGBToHex(tuple(int(c + (255 - c) * factor) for c in rgb))
+    return RGBToHex(tuple(int(c + (255 - c) * (1-factor)) for c in rgb))
 
 
 def initAgent(agent, tags, distribution):
@@ -407,6 +406,7 @@ class View:
                     except StopIteration:
                         break
 
+
             # TRANSMIT
             if ruleTransmit:
                 agent.transmit()
@@ -475,11 +475,9 @@ class View:
                             self.grid[row][col] = (self.grid[row][col][0], fill_color)
                     else:
                         spiceCapacity = env.getCapacity((row, col), sugar=False)
-                        if sugarCapacity > 0 and spiceCapacity > 0:
-                            fill_color = lightenColor(colorBoth, (sugarCapacity+spiceCapacity)/2)
-                        elif sugarCapacity > 0:
+                        if sugarCapacity >= spiceCapacity:
                             fill_color = lightenColor(colorSugar, sugarCapacity)
-                        elif spiceCapacity > 0:
+                        elif sugarCapacity < spiceCapacity:
                             fill_color = lightenColor(colorSpice, spiceCapacity)
                         else:
                             fill_color = "white"

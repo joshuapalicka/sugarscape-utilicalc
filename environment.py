@@ -23,6 +23,10 @@ class Environment:
         self.grid = [[[0, 0, 0, 0, None] for __ in range(width)] for __ in
                      range(  # was sugar, capacity, agent. now sugar, spice, sugar capacity, spice capacity, agent
                          height)]  # indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent
+        self.hasSpice = False
+
+    def getHasSpice(self):
+        return self.hasSpice
 
     def setCapacity(self, location, value, sugar=True):
         if sugar:
@@ -58,6 +62,7 @@ class Environment:
                 self.grid[i][j][2] = c
 
     def addSpiceSite(self, location, maxCapacity):
+        self.hasSpice = True
         # calculate radial dispersion of capacity from maxCapacity to 0
         (si, sj, r) = location
         distance = lambda di, dj: sqrt(di * di + dj * dj)
