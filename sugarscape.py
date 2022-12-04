@@ -2,6 +2,8 @@
 Created on 2010-04-17
 
 @author: rv
+
+Updated by joshuapalicka
 '''
 
 import random
@@ -20,45 +22,36 @@ initial simulation parameters
 
 # view
 screenSize = 600, 600
+gridSize = 50, 50
 colorBackground = 250, 250, 250
 
-# yellow shades
-
-colorSugar = "#F2FA00"
-
-colorSpice = "#9B4722"
-
-colorBoth = "#BF8232"
-
-colorRed = "#FA3232"
-
-colorPink = "#FA32FA"
-
-colorBlue = "#3232FA"
+# display colors
+colors = {
+    "sugar": "#F2FA00",
+    "spice": "#9B4722",
+    "both": "#BF8232",
+    "red": "#FA3232",
+    "pink": "#FA32FA",
+    "blue": "#3232FA"
+}
 
 # environment
-gridSize = 50, 50
-northSite = 35, 15, 18
-southSite = 15, 35, 18
+sites = {
+    "northeast": (35, 15, 18),
+    "southwest": (15, 35, 18),
+    "southeast": (40, 40, 14),
+    "northwest": (10, 10, 14)
 
-westSite = 10, 10, 14
-eastSite = 40, 40, 14
-
-"""
-Non-touching circles:
-
-northSite = 38, 12, 12 
-southSite = 12, 38, 12
-
-westSite = 12, 12, 12
-eastSite = 38, 38, 12
-
-"""
+}
 
 maxCapacity = 10  # !!! < or = nbr items in colorSugar array
 seasonPeriod = 50
-northRegion = 0, 0, 49, 24
-southRegion = 0, 25, 49, 49
+
+seasonRegions = {
+    "north": (0, 0, 49, 24),
+    "south": (0, 25, 49, 49)
+}
+
 growFactor = 1
 growFactor1 = 1
 growFactor2 = float(growFactor1) / 8
@@ -80,127 +73,7 @@ tagsLength = 5  # must be odd
 tags0 = 0
 tags1 = 2 ** tagsLength - 1
 
-''' settings for Evolution from random distribution
-agentColorScheme = 0        
-distributions = [(400, None, (0, 50, 0, 50))] 
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = True
-ruleCombat = False
-ruleLimitedLife = False
-ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = False'''
-
-''' settings for Emergent waves migration
-agentColorScheme = 0        
-distributions = [(300, None, (0, 20, 30, 50))]
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = True
-ruleCombat = False
-ruleLimitedLife = False
-ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = False'''
-
-''' settings for Seasonal migration
-agentColorScheme = 0        
-distributions = [(400, None, (0, 50, 0, 50))] 
-ruleGrow = True
-ruleSeasons = True
-ruleMoveEat = True
-ruleCombat = False
-ruleLimitedLife = False
-ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = False'''
-
-''' settings for societal evolution
-agentColorScheme = 3       
-distributions = [(300, None, (0, 50, 0, 50))] 
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = True
-ruleCombat = False
-ruleLimitedLife = True
-ruleReplacement = False
-ruleProcreate = True
-ruleTransmit = False'''
-
-''' settings for Cultural transmission
-agentColorScheme = 4
-distributions = [(200, tags0, (0, 50, 0, 50)), (200, tags1, (0, 50, 0, 50))]
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = True
-ruleCombat = False
-ruleLimitedLife = False
-ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = True'''
-
-'''# settings for Combat with alpha = infinite
-agentColorScheme = 4
-distributions = [
-    (300, tags0, (0, 20, 30, 50)),  # blues
-    (300, tags1, (30, 50, 0, 20))]  # reds
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = False
-ruleCombat = True
-ruleLimitedLife = False
-ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = False
-combatAlpha = 1000000'''
-
-'''# settings for Trench war with alpha = 2
-agentColorScheme = 4
-distributions = [
-    (300, tags0, (0, 20, 30, 50)),  # blues
-    (300, tags1, (30, 50, 0, 20))]  # reds
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = False
-ruleCombat = True
-ruleLimitedLife = False
-ruleReplacement = True
-ruleProcreate = False
-ruleTransmit = False
-combatAlpha = 2'''
-
-'''# settings for Combat eliminates Waves with alpha = 2
-agentColorScheme = 4
-distributions = [
-    (300, tags0, (0, 20, 30, 50)),  # blues
-    (300, tags1, (30, 50, 0, 20))]  # reds
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = False
-ruleCombat = True
-ruleLimitedLife = False
-ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = False
-combatAlpha = 2'''
-
-'''# settings for Combat and cultural transmission
-agentColorScheme = 4
-distributions = [
-    (300, tags0, (0, 20, 30, 50)),  # blues
-    (300, tags1, (30, 50, 0, 20))]  # reds
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = False
-ruleCombat = True
-ruleLimitedLife = False
-ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = True
-combatAlpha = 1000000'''
-
-# settings for Proto-History
+# Active settings
 agentColorScheme = 4
 distributions = [
     (100, tags0, (0, 50, 0, 50)),  # blues
@@ -316,32 +189,32 @@ class View:
 
     # display agent switch case (dictionary)
     def all(self, agent):
-        return colorRed
+        return colors["red"]
 
     def bySex(self, agent):
         if agent.getSex() == female:
-            return colorPink
+            return colors["pink"]
         else:
-            return colorBlue
+            return colors["blue"]
 
     def byMetabolism(self, agent):
         if agent.getMetabolism() > 2:
-            return colorRed
+            return colors["red"]
         else:
-            return colorBlue
+            return colors["blue"]
 
     def byVision(self, agent):
         if agent.getVision() > 3:
-            return colorRed
+            return colors["red"]
         else:
-            return colorBlue
+            return colors["blue"]
 
     def byGroup(self, agent):
         #        if bin(agent.getTags()).count('1') > agent.getTagsLength()>>1:
         if agent.getTribe() == 1:
-            return colorRed
+            return colors["red"]
         else:
-            return colorBlue
+            return colors["blue"]
 
     agentColorSchemes = {0: all, 1: bySex, 2: byMetabolism, 3: byVision, 4: byGroup}
 
@@ -481,14 +354,14 @@ class View:
                 # Summer
                 self.season = "(summer, winter)"
                 if ruleGrow:
-                    self.env.growRegion(northRegion, growFactor1)
-                    self.env.growRegion(southRegion, growFactor2)
+                    self.env.growRegion(seasonRegions["north"], growFactor1)
+                    self.env.growRegion(seasonRegions["south"], growFactor2)
             else:
                 # winter
                 self.season = "(winter, summer)"
                 if ruleGrow:
-                    self.env.growRegion(northRegion, growFactor2)
-                    self.env.growRegion(southRegion, growFactor1)
+                    self.env.growRegion(seasonRegions["north"], growFactor2)
+                    self.env.growRegion(seasonRegions["south"], growFactor1)
         elif ruleGrow:
             self.season = "NA"
             self.env.grow(growFactor)
@@ -502,13 +375,13 @@ class View:
             else:
                 sugarCapacity = env.getSugarCapacity((row, col))
                 if not ruleSpice:
-                    fill_color = lightenColor(colorSugar, sugarCapacity)
+                    fill_color = lightenColor(colors["sugar"], sugarCapacity)
                 else:
                     spiceCapacity = env.getSpiceCapacity((row, col))
                     if sugarCapacity >= spiceCapacity:
-                        fill_color = lightenColor(colorSugar, sugarCapacity)
+                        fill_color = lightenColor(colors["sugar"], sugarCapacity)
                     elif sugarCapacity < spiceCapacity:
-                        fill_color = lightenColor(colorSpice, spiceCapacity)
+                        fill_color = lightenColor(colors["spice"], spiceCapacity)
                     else:
                         fill_color = "white"
 
@@ -534,13 +407,13 @@ class View:
                 # display sugar's capacity
                 sugarCapacity = env.getSugarCapacity((row, col))
                 if not ruleSpice:
-                    fill_color = lightenColor(colorSugar, sugarCapacity)
+                    fill_color = lightenColor(colors["sugar"], sugarCapacity)
                 else:
                     spiceCapacity = env.getSpiceCapacity((row, col))
-                    if sugarCapacity > 0:
-                        fill_color = lightenColor(colorSugar, sugarCapacity)
-                    elif spiceCapacity > 0:
-                        fill_color = lightenColor(colorSpice, spiceCapacity)
+                    if sugarCapacity >= spiceCapacity:
+                        fill_color = lightenColor(colors["sugar"], sugarCapacity)
+                    elif sugarCapacity < spiceCapacity:
+                        fill_color = lightenColor(colors["spice"], spiceCapacity)
                     else:
                         fill_color = "white"
             self.grid[row][col] = (
@@ -630,17 +503,17 @@ if __name__ == '__main__':
     env = Environment(gridSize)
 
     # add radial food site 
-    env.addSugarSite(northSite, maxCapacity)
+    env.addSugarSite(sites["northeast"], maxCapacity)
 
     # add radial food site 
-    env.addSugarSite(southSite, maxCapacity)
+    env.addSugarSite(sites["southwest"], maxCapacity)
 
     if ruleSpice:
         # add radial food site
-        env.addSpiceSite(eastSite, maxCapacity)
+        env.addSpiceSite(sites["southeast"], maxCapacity)
 
         # add radial food site
-        env.addSpiceSite(westSite, maxCapacity)
+        env.addSpiceSite(sites["northwest"], maxCapacity)
 
     # grow to max capacity
     if ruleGrow:
