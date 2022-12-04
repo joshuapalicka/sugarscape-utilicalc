@@ -3,6 +3,7 @@ Created on 2010-04-21
 
 @author: rv
 '''
+import math
 import random
 from itertools import product
 
@@ -11,7 +12,7 @@ class Agent:
     '''
     classdocs
     '''
-    costForMatingRange = 0, 0  # 10,40
+
     tagsProbability = 0.55
 
     def __init__(self, env, x=0, y=0, sugarMetabolism=4, spiceMetabolism=4, vision=6, sugarEndowment=25,
@@ -22,6 +23,8 @@ class Agent:
         self.env = env
         self.x = x
         self.y = y
+        self.sugar = 0
+        self.spice = 0
         self.sugarMetabolism = sugarMetabolism
         self.spiceMetabolism = spiceMetabolism
         self.vision = vision
@@ -29,8 +32,14 @@ class Agent:
         self.age = 0
         self.sex = sex
         self.fertility = fertility
-        self.setInitialEndowment(sugarEndowment)
-        self.setInitialEndowment(spiceEndowment, sugar=False)
+        self.sugarCostForMatingRange = 0, 0  # 10,40
+        self.spiceCostForMatingRange = 0, 0
+        self.tradeLog = []
+        self.sugarLog = []
+        self.spiceLog = []
+        self.log = []
+        self.setInitialSugarEndowment(sugarEndowment)
+        self.setInitialSpiceEndowment(spiceEndowment)
         self.setTags(tags)
 
     ''' 
@@ -41,24 +50,26 @@ class Agent:
         return self.env
 
     def setLocation(self, location):
-        (x, y) = location
-        self.x = x
-        self.y = y
+        previousLocation = self.getLocation()
+        self.x = location[0]
+        self.y = location[1]
+        move_str = "Agent put at location: " + str(previousLocation) + " ->" + str(location)
+        self.addLogEntry(move_str)
 
     def getLocation(self):
         return (self.x, self.y)
 
-    def setMetabolism(self, metabolism, sugar=True):
-        if sugar:
-            self.sugarMetabolism = metabolism
-        else:
-            self.spiceMetabolism = metabolism
+    def setSugarMetabolism(self, metabolism):
+        self.sugarMetabolism = metabolism
 
-    def getMetabolism(self, sugar=True):
-        if sugar:
-            return self.sugarMetabolism
-        else:
-            return self.spiceMetabolism
+    def setSpiceMetabolism(self, metabolism):
+        self.spiceMetabolism = metabolism
+
+    def getSugarMetabolism(self):
+        return self.sugarMetabolism
+
+    def getSpiceMetabolism(self):
+        return self.spiceMetabolism
 
     def setVision(self, vision):
         self.vision = vision
@@ -66,20 +77,40 @@ class Agent:
     def getVision(self):
         return self.vision
 
-    def setInitialEndowment(self, endowment, sugar=True):
-        if sugar:
-            self.sugarEndowment = endowment
-            self.sugar = endowment
-            if self.costForMatingRange == (0, 0):
-                self.costForMating = endowment
-            else:
-                self.costForMating = random.randint(self.costForMatingRange[0], self.costForMatingRange[1])
+    def setInitialSugarEndowment(self, endowment):
+        self.sugarEndowment = endowment
+        self.setSugar(endowment, "initial")
+        if self.sugarCostForMatingRange == (0, 0):
+            self.sugarCostForMating = endowment
         else:
-            self.spiceEndowment = endowment
-            self.spice = endowment
+            self.sugarCostForMating = random.randint(self.sugarCostForMatingRange[0], self.sugarCostForMatingRange[1])
+
+    def setInitialSpiceEndowment(self, endowment):
+        self.spiceEndowment = endowment
+        self.setSpice(endowment, "initial")
+        if self.spiceCostForMatingRange == (0, 0):
+            self.spiceCostForMating = endowment
+        else:
+            self.spiceCostForMating = random.randint(self.spiceCostForMatingRange[0], self.spiceCostForMatingRange[1])
 
     def getSugar(self):
         return self.sugar
+
+    def setSugar(self, amount, reason=""):
+        if amount != 0:
+            previousSugar = self.sugar
+            self.sugar = amount
+            sugarLog_str = "sugar: " + str(previousSugar) + " -> " + str(self.sugar) + " (" + reason + ")"
+            self.sugarLog.append(sugarLog_str)
+            self.addLogEntry(sugarLog_str)
+
+    def setSpice(self, amount, reason=""):
+        if amount != 0:
+            previousSpice = self.spice
+            self.spice = amount
+            spiceLog_str = "spice: " + str(previousSpice) + " -> " + str(self.spice) + " (" + reason + ")"
+            self.spiceLog.append(spiceLog_str)
+            self.addLogEntry(spiceLog_str)
 
     def getSpice(self):
         return self.spice
@@ -114,6 +145,42 @@ class Agent:
 
     def getTribe(self):
         return self.tribe
+
+    def getSugarLog(self):
+        return self.sugarLog
+
+    def getSpiceLog(self):
+        return self.spiceLog
+
+    def printSugarLog(self):
+        for entry in self.sugarLog:
+            print(entry)
+
+    def printSpiceLog(self):
+        for entry in self.spiceLog:
+            print(entry)
+
+    def addTrade(self, trade):
+        self.tradeLog.append(trade)
+        # self.addLogEntry(trade)  # clutters the log
+
+    def getTrades(self):
+        return self.tradeLog
+
+    def printTrades(self):
+        for trade in self.tradeLog:
+            print(trade)
+
+    def addLogEntry(self, entry):
+        time_str = str(self.env.getTime()) + ": "
+        self.log.append(time_str + entry)
+
+    def getLog(self):
+        return self.log
+
+    def printLog(self):
+        for entry in self.log:
+            print(entry)
 
     ''' 
     build common lists
@@ -176,22 +243,30 @@ class Agent:
                 neighbourTags ^= mask
                 # transmit new tag
                 neighbour.setTags((neighbourTags, self.tagsLength))
+                self.addLogEntry("transmit: " + str(neighbourTags) + " (" + str(mask) + ")")
 
     # AGEING
     # If age > maxAge Then the agent is dead (return False)
     def incAge(self):
         self.age += 1
+        self.addLogEntry("age: " + str(self.age))
         return max(self.maxAge - self.age, 0)
 
     # FERTILITY
-    # First, to have offspring, agents must be of childbearing age. 
-    # Second, children born with literally no initial endowment of sugar would instantly die. 
+    # First, to have offspring, agents must be of childbearing age.
+    # Second, children born with literally no initial endowment of sugar would instantly die.
     # We therefore require that parents give their children some initial endowment.
     # Each newborn's endowment is the sum of the (usually unequal) contributions of mother and father.
     # Dad contributes an amount equal to one half of whatever his initial endowment had been, and likewise for mom.
     # To be parents, agents must have amassed at least the amount of sugar which they were endowed at birth.
     def isFertile(self):
-        return self.fertility[0] <= self.age <= self.fertility[1] and self.sugar >= self.costForMating
+        if self.fertility[0] <= self.age <= self.fertility[1]:
+            if self.sugar >= self.spiceCostForMating and not self.env.getHasSpice():
+                return True
+            elif self.sugar >= self.sugarCostForMating and self.env.getHasSpice():
+                if self.spice >= self.spiceCostForMating:
+                    return True
+        return False
 
     # MATE (Generator):
     # Select a neighboring agent at random.
@@ -209,7 +284,7 @@ class Agent:
             # partner selection
             if neighbour.getSex() == self.sex or not neighbour.isFertile():
                 continue
-            # find a free location around the agent for the baby 
+            # find a free location around the agent for the baby
             freeLocation = self.findFreeLocationAround(self.x, self.y)
             if not freeLocation:
                 # or find around the partner
@@ -244,11 +319,12 @@ class Agent:
         sugarEndowment = 0.5 * (genitors[0].sugarEndowment + genitors[1].sugarEndowment)
         spiceEndowment = 0.5 * (genitors[0].spiceEndowment + genitors[1].spiceEndowment)
 
-        genitors[0].sugar = max(genitors[0].sugar - 0.5 * genitors[0].sugarEndowment, 0)
-        genitors[1].sugar = max(genitors[1].sugar - 0.5 * genitors[1].sugarEndowment, 0)
+        genitors[0].setSugar(max(genitors[0].sugar - 0.5 * genitors[0].sugarEndowment, 0), "Create child")
+        genitors[1].setSugar(max(genitors[1].sugar - 0.5 * genitors[1].sugarEndowment, 0), "Create child")
 
-        genitors[0].spice = max(genitors[0].spice - 0.5 * genitors[0].spiceEndowment, 0)
-        genitors[1].spice = max(genitors[1].spice - 0.5 * genitors[1].spiceEndowment, 0)
+        genitors[0].setSpice(max(genitors[0].spice - 0.5 * genitors[0].spiceEndowment, 0), "Create child")
+        genitors[1].setSpice(max(genitors[1].spice - 0.5 * genitors[1].spiceEndowment, 0), "Create child")
+
         ageMax = genitors[random.randint(0, 1)].maxAge
         sex = random.randint(0, 1)
         fertility = genitors[random.randint(0, 1)].fertility
@@ -265,21 +341,23 @@ class Agent:
                 childTags |= tag2
             mask <<= 1
 
-        # create child agent TODO: Spice?
+        # create child agent
+        self.addLogEntry(str("create child: " + str(childLocation)))
+
         child = Agent(self.env, x, y, sugarMetabolism, spiceMetabolism, vision, sugarEndowment, spiceEndowment, ageMax,
                       sex, fertility,
                       (childTags, self.tagsLength))
         self.env.setAgent((x, y), child)
         return child
 
-    def getWelfare(self, x, y):
+    def getLocationWelfare(self, x, y):
         # agent welfare function to determine if we need to find spice or sugar
         # this formula is based on page 97 of the book "Growing Artificial Societies" by Epstein and Axtell
         m1 = self.sugarMetabolism
         m2 = self.spiceMetabolism
 
-        x1 = self.env.getCapacity((x, y))
-        x2 = self.env.getCapacity((x, y), sugar=False)
+        x1 = self.env.getSugarCapacity((x, y))
+        x2 = self.env.getSpiceCapacity((x, y))
 
         w1 = self.sugar + x1
         w2 = self.spice + x2
@@ -287,6 +365,9 @@ class Agent:
         mt = m1 + m2
 
         return w1 ** (m1 / mt) * w2 ** (m2 / mt)
+
+    def getManhattanDistance(self, x, y):
+        return abs(self.x - x) + abs(self.y - y)
 
     # MOVE:
     # Look out as far as vision permits in the four principal lattice directions and identify the unoccupied site(s) having the most sugar.
@@ -297,7 +378,6 @@ class Agent:
 
     def move(self):
         # find best food location
-        # much faster than sorting.
         move = False
         newx = self.x
         newy = self.y
@@ -314,7 +394,7 @@ class Agent:
             for (x, y) in food:
                 location = (x, y)
                 sugarCapacity = self.env.getCapacity((x, y))
-                distance = abs(x - self.x + y - self.y)  # Manhattan distance enough due to no diagonal
+                distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
                 locations.append((location, sugarCapacity, distance))
 
             locations.sort(key=lambda x: x[2])
@@ -325,20 +405,20 @@ class Agent:
                 newx, newy = best_location[0]
 
             best_sugar = best_location[1]
-            self.sugar = max(self.sugar + best_sugar - self.sugarMetabolism, 0)
+            self.setSugar(max(self.sugar + best_sugar, 0), "Move")
 
 
         else:
             for (x, y) in food:
-                welfare = self.getWelfare(x, y)
+                welfare = self.getLocationWelfare(x, y)
                 location = (x, y)
-                sugarCapacity = self.env.getCapacity((x, y))
-                spiceCapacity = self.env.getCapacity((x, y), sugar=False)
-                distance = abs(x - self.x + y - self.y)  # Manhattan distance enough due to no diagonal
+                sugarCapacity = self.env.getSugarCapacity((x, y))
+                spiceCapacity = self.env.getSpiceCapacity((x, y))
+                distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
                 locations.append((welfare, location, sugarCapacity, spiceCapacity, distance))
 
             locations.sort(key=lambda x: x[4])
-            best_location = max(locations, key=lambda x: x[0])
+            best_location = max(locations, key=lambda x: x[0])  # gets closest location with highest welfare
             if best_location[1] != (self.x, self.y):
                 move = True
                 newx, newy = best_location[1]
@@ -346,23 +426,135 @@ class Agent:
             best_sugar = best_location[2]
             best_spice = best_location[3]
 
-            self.spice = max(self.spice + best_spice - self.spiceMetabolism, 0)
-            self.sugar = max(self.sugar + best_sugar - self.sugarMetabolism, 0)
+            self.setSpice(max(self.spice + best_spice, 0), "Move")
+            self.setSugar(max(self.sugar + best_sugar, 0), "Move")
 
         # move to new location if any
         if move:
             self.env.setAgent((self.x, self.y), None)
             self.env.setAgent((newx, newy), self)
+            previousLocation = (self.x, self.y)
             self.x = newx
             self.y = newy
+            self.addLogEntry(str("move: " + str(previousLocation) + " -> " + str((newx, newy))))
 
-        # collect, eat and consume
-        self.env.setCapacity((self.x, self.y), 0)
-        self.env.setCapacity((self.x, self.y), 0, True)
+        self.env.setSugarCapacity((self.x, self.y), 0)
+        self.env.setSpiceCapacity((self.x, self.y), 0)
+
+    def getWelfare(self, w1=None, w2=None):
+        m1 = self.sugarMetabolism
+        m2 = self.spiceMetabolism
+
+        if not w1 and not w2:
+            w1 = self.sugar
+            w2 = self.spice
+
+        mt = m1 + m2
+
+        return w1 ** (m1 / mt) * w2 ** (
+                    m2 / mt) if w1 > 0 and w2 > 0 else 0
+
+    # MRS means Marginal Rate of Substitution
+    def getMRS(self, w1=None, w2=None):
+        m1 = self.sugarMetabolism
+        m2 = self.spiceMetabolism
+
+        if not w1 and not w2:
+            w1 = self.sugar
+            w2 = self.spice
+
+        t1 = w1 / m1
+        t2 = w2 / m2
+
+        return t2 / t1 if t1 != 0 else 0
+
+    def tradeHelper(self, A, B, p, A_welfare, B_welfare):
+        # in this function, A is always the higher MRS agent so spice flows from A to B and sugar flows from B to A
+        if p == 1:
+            return False
+
+        if p > 1:
+            B_potential_sugar = B.getSugar() - 1
+            A_potential_sugar = A.getSugar() + 1
+
+            A_potential_spice = A.getSpice() - p
+            B_potential_spice = B.getSpice() + p
+
+        elif p < 1:
+            B_potential_sugar = B.getSugar() - 1 / p
+            A_potential_sugar = A.getSugar() + 1 / p
+
+            A_potential_spice = A.getSpice() - 1
+            B_potential_spice = B.getSpice() + 1
+
+        new_A_mrs = A.getMRS(A_potential_sugar, A_potential_spice)
+        new_B_mrs = B.getMRS(B_potential_sugar, B_potential_spice)
+
+        new_A_welfare = A.getWelfare(A_potential_sugar, A_potential_spice)
+        new_B_welfare = B.getWelfare(B_potential_sugar, B_potential_spice)
+
+        if new_A_welfare > A_welfare and new_B_welfare > B_welfare:
+            if new_A_mrs > new_B_mrs:
+                A_prev_sugar = A.getSugar()
+                A_prev_spice = A.getSpice()
+                B_prev_sugar = B.getSugar()
+                B_prev_spice = B.getSpice()
+
+                A.setSugar(A_potential_sugar, "Trade")
+                B.setSugar(B_potential_sugar, "Trade")
+                A.setSpice(A_potential_spice, "Trade")
+                B.setSpice(B_potential_spice, "Trade")
+
+                A_trade_str = "I traded with Agent " + str(B.getLocation()) + " A started with " + str(
+                    A_prev_sugar) + " sugar and " + str(A_prev_spice) + " spice. They ended with " + str(
+                    A.getSugar()) + " sugar and " + str(A.getSpice()) + " spice. Cost was: " + str(p)
+                B_trade_str = "I traded with Agent " + str(A.getLocation()) + " B started with " + str(
+                    B_prev_sugar) + " sugar and " + str(B_prev_spice) + " spice. They ended with " + str(
+                    B.getSugar()) + " sugar and " + str(B.getSpice()) + " spice. Cost was: " + str(p)
+
+                A.addTrade(A_trade_str)
+                B.addTrade(B_trade_str)
+
+                return True
+        return False
+
+    def trade(self):
+        # Formula starts on page 102 of the book "Growing Artificial Societies" by Epstein and Axtell
+        # in this scenario, self is A and other is B
+        trades = []
+        potential_traders = self.getNeighbourhood()
+        random.shuffle(potential_traders)
+        for trader in potential_traders:
+            if trader is not None:
+                trader_1 = self
+                trader_2 = trader
+
+                has_traded = True  # if no trade is made, this will be false and the loop will break, otherwise it will continue
+                while has_traded:
+                    trader_1_mrs = self.getMRS()
+                    trader_2_mrs = trader.getMRS()
+                    trader_1_welfare = self.getWelfare()
+                    trader_2_welfare = trader.getWelfare()
+                    p = math.sqrt(trader_1_mrs * trader_2_mrs)
+
+                    if trader_1_mrs > trader_2_mrs:
+                        has_traded = self.tradeHelper(trader_1, trader_2, p, trader_1_welfare, trader_2_welfare)
+
+                    elif trader_1_mrs < trader_2_mrs:
+                        has_traded = self.tradeHelper(trader_2, trader_1, p, trader_2_welfare, trader_1_welfare)
+
+                    else:
+                        has_traded = False
+
+                    if has_traded:
+                        trades.append(p)
+        return trades
 
     # TODO: Implement spice with combat?
     # COMBAT
     def combat(self, alpha):
+        hasSpice = self.env.getHasSpice()
+
         # build a list of available unoccupied food locations
         food = self.getFood()
 
@@ -371,10 +563,19 @@ class Agent:
 
         # append to food safe preys (retaliation condition)
         C0 = self.sugar - self.sugarMetabolism
-        food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
-                     if preyA != preyB
-                     and preyB.getSugar() < (
-                             C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))])
+        if not hasSpice:
+            food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
+                         if preyA != preyB
+                         and preyB.getSugar() < (
+                                     C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))])
+        else:
+            C1 = self.spice - self.spiceMetabolism
+            food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
+                         if preyA != preyB
+                         and preyB.getSugar() < (
+                                     C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))
+                         and preyB.getSpice() < (
+                                     C1 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSpice()))])
 
         # randomize food locations
         random.shuffle(food)
@@ -407,7 +608,12 @@ class Agent:
             self.x = newx
             self.y = newy
 
+        if killed is not None:
+            self.addLogEntry("I killed Agent at" + str(killed.getLocation()))
+
         # collect, eat and consume
-        self.sugar = max(self.sugar + best - self.sugarMetabolism, 0)
+        self.setSugar(max(self.sugar + best, 0), "Move")
+        if hasSpice:
+            self.setSpice(max(self.spice + best, 0), "Move")
         self.env.setCapacity((self.x, self.y), 0)
         return killed

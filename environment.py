@@ -24,32 +24,34 @@ class Environment:
                      range(  # was sugar, capacity, agent. now sugar, spice, sugar capacity, spice capacity, agent
                          height)]  # indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent
         self.hasSpice = False
+        self.time = 0
 
     def getHasSpice(self):
         return self.hasSpice
 
-    def setCapacity(self, location, value, sugar=True):
-        if sugar:
-            (i, j) = location
-            self.grid[i][j][0] = value
-        else:
-            (i, j) = location
-            self.grid[i][j][1] = value
-
-    def getCapacity(self, location, sugar=True):
-        if sugar:
-            (i, j) = location
-            return int(self.grid[i][j][0])
-        else:
-            (i, j) = location
-            return int(self.grid[i][j][1])
-
-    def decCapacity(self, location, value, sugar=True):
+    def setSugarCapacity(self, location, value):
         (i, j) = location
-        if sugar:
-            self.grid[i][j][0] = max(0, self.grid[i][j][2] - value)
-        else:
-            self.grid[i][j][1] = max(0, self.grid[i][j][3] - value)
+        self.grid[i][j][0] = value
+
+    def setSpiceCapacity(self, location, value):
+        (i, j) = location
+        self.grid[i][j][1] = value
+
+    def getSugarCapacity(self, location):
+        (i, j) = location
+        return int(self.grid[i][j][0])
+
+    def getSpiceCapacity(self, location):
+        (i, j) = location
+        return int(self.grid[i][j][1])
+
+    def decCapacity(self, location, value):
+        (i, j) = location
+        self.grid[i][j][0] = max(0, self.grid[i][j][2] - value)
+
+    def decSpiceCapacity(self, location, value):
+        (i, j) = location
+        self.grid[i][j][1] = max(0, self.grid[i][j][3] - value)
 
     def addSugarSite(self, location, maxCapacity):
         # calculate radial dispersion of capacity from maxCapacity to 0
@@ -72,16 +74,23 @@ class Environment:
             if c > self.grid[i][j][3]:
                 self.grid[i][j][3] = c
 
-    def grow(self, alpha, sugar=True):
+    def growHelper(self, location, alpha):
+        hasSpice = self.getHasSpice()
+        (i, j) = location
+        self.grid[i][j][0] = min(self.grid[i][j][0] + alpha, self.grid[i][j][2])
+
+        if hasSpice:
+            self.grid[i][j][1] = min(self.grid[i][j][1] + alpha, self.grid[i][j][3])
+
+
+    def grow(self, alpha):
+        hasSpice = self.getHasSpice()
         # grow to maxCapacity with alpha 
         for i, j in product(range(self.gridWidth), range(self.gridHeight)):
-            if sugar:
-                self.grid[i][j][0] = min(self.grid[i][j][0] + alpha, self.grid[i][j][2])
-            else:
-                self.grid[i][j][0] = min(self.grid[i][j][0] + alpha, self.grid[i][j][2])  # if spice, grow both
-                self.grid[i][j][1] = min(self.grid[i][j][1] + alpha, self.grid[i][j][3])
+            self.growHelper((i, j), alpha)
 
-    def growRegion(self, region, alpha, sugar=True):
+    def growRegion(self, region, alpha):
+        hasSpice = self.getHasSpice()
         # grow  region to maxCapacity with alpha
         (imin, jmin, imax, jmax) = region
         imin = max(imin, 0)
@@ -90,10 +99,7 @@ class Environment:
         jmax = min(jmax + 1, self.gridHeight)
         for j in range(jmin, jmax):
             for i in range(imin, imax):
-                if sugar:
-                    self.grid[i][j][0] = min(self.grid[i][j][0] + alpha, self.grid[i][j][2])
-                else:
-                    self.grid[i][j][1] = min(self.grid[i][j][1] + alpha, self.grid[i][j][3]) # TODO: make similar to grow?
+                self.growHelper((i, j), alpha)
 
     def setAgent(self, location, agent):
         (i, j) = location
@@ -121,3 +127,9 @@ class Environment:
         if len(freeLocations) > 0:
             return freeLocations[random.randint(0, len(freeLocations) - 1)]
         return None
+
+    def incrementTime(self):
+        self.time += 1
+
+    def getTime(self):
+        return self.time

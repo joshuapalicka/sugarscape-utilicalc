@@ -1,0 +1,159 @@
+'''# settings for Evolution from random distribution
+agentColorScheme = 0
+distributions = [(400, None, (0, 50, 0, 50))]
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = True
+ruleCombat = False
+ruleLimitedLife = False
+ruleReplacement = False
+ruleProcreate = False
+ruleTransmit = False
+ruleSpice = False
+ruleTrade = False
+'''
+
+'''# settings for Emergent waves migration
+agentColorScheme = 0
+distributions = [(300, None, (0, 20, 30, 50))]
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = True
+ruleCombat = False
+ruleLimitedLife = False
+ruleReplacement = False
+ruleProcreate = False
+ruleTransmit = False
+ruleSpice = False
+ruleTrade = False
+'''
+
+'''# settings for Seasonal migration
+agentColorScheme = 0
+distributions = [(400, None, (0, 50, 0, 50))]
+ruleGrow = True
+ruleSeasons = True
+ruleMoveEat = True
+ruleCombat = False
+ruleLimitedLife = False
+ruleReplacement = False
+ruleProcreate = False
+ruleTransmit = False
+ruleSpice = False
+ruleTrade = False
+'''
+
+'''# settings for societal evolution
+agentColorScheme = 3
+distributions = [(300, None, (0, 50, 0, 50))]
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = True
+ruleCombat = False
+ruleLimitedLife = True
+ruleReplacement = False
+ruleProcreate = True
+ruleTransmit = False
+ruleSpice = False
+ruleTrade = False
+'''
+
+'''# settings for Cultural transmission
+agentColorScheme = 4
+distributions = [(200, tags0, (0, 50, 0, 50)), (200, tags1, (0, 50, 0, 50))]
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = True
+ruleCombat = False
+ruleLimitedLife = False
+ruleReplacement = False
+ruleProcreate = False
+ruleSpice = False
+ruleTrade = False
+ruleTransmit = True'''
+
+'''# settings for Combat with alpha = infinite
+agentColorScheme = 4
+distributions = [
+    (300, tags0, (0, 20, 30, 50)),  # blues
+    (300, tags1, (30, 50, 0, 20))]  # reds
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = False
+ruleCombat = True
+ruleLimitedLife = False
+ruleReplacement = False
+ruleProcreate = False
+ruleTransmit = False
+ruleSpice = False
+ruleTrade = False
+combatAlpha = 1000000'''
+
+'''# settings for Trench war with alpha = 2
+agentColorScheme = 4
+distributions = [
+    (300, tags0, (0, 20, 30, 50)),  # blues
+    (300, tags1, (30, 50, 0, 20))]  # reds
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = False
+ruleCombat = True
+ruleLimitedLife = False
+ruleReplacement = True
+ruleProcreate = False
+ruleTransmit = False
+ruleSpice = False
+ruleTrade = False
+combatAlpha = 2'''
+
+'''# settings for Combat eliminates Waves with alpha = 2
+agentColorScheme = 4
+distributions = [
+    (300, tags0, (0, 20, 30, 50)),  # blues
+    (300, tags1, (30, 50, 0, 20))]  # reds
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = False
+ruleCombat = True
+ruleLimitedLife = False
+ruleReplacement = False
+ruleProcreate = False
+ruleTransmit = False
+ruleSpice = False
+ruleTrade = False
+combatAlpha = 2'''
+
+'''# settings for Combat and cultural transmission
+agentColorScheme = 4
+distributions = [
+    (300, tags0, (0, 20, 30, 50)),  # blues
+    (300, tags1, (30, 50, 0, 20))]  # reds
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = False
+ruleCombat = True
+ruleLimitedLife = False
+ruleReplacement = False
+ruleProcreate = False
+ruleTransmit = True
+ruleSpice = False
+ruleTrade = False
+combatAlpha = 1000000'''
+
+"""# settings for Proto-History
+agentColorScheme = 4
+distributions = [
+    (25, tags0, (0, 50, 0, 50)),  # blues
+    (25, tags1, (0, 50, 0, 50))]  # reds
+ruleGrow = True
+ruleSeasons = False
+ruleMoveEat = True
+ruleCombat = False
+ruleLimitedLife = True
+ruleReplacement = False
+ruleProcreate = True
+ruleTransmit = True
+ruleSpice = False
+ruleTrade = False
+combatAlpha = 1000000
+"""
