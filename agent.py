@@ -13,7 +13,7 @@ class Agent:
     classdocs
     '''
 
-    tagsProbability = 0.55
+    tagsProbability = 0.50
 
     def __init__(self, env, x=0, y=0, sugarMetabolism=4, spiceMetabolism=4, vision=6, sugarEndowment=25,
                  spiceEndowment=25, maxAge=100, sex=0, fertility=(12, 50), tags=(0, 11)):
@@ -231,6 +231,7 @@ class Agent:
 
     # TRANSMIT
     def transmit(self):
+        self.env.hasTags = True
         # build a list of possible neighbours for in neighbourhood
         neighbourhood = self.getNeighbourhood()
 
@@ -350,9 +351,9 @@ class Agent:
         self.env.setAgent((x, y), child)
         return child
 
+    """
     def getLocationWelfare(self, x, y):
-        # agent welfare function to determine if we need to find spice or sugar
-        # this formula is based on page 97 of the book "Growing Artificial Societies" by Epstein and Axtell
+
         m1 = self.sugarMetabolism
         m2 = self.spiceMetabolism
 
@@ -365,6 +366,35 @@ class Agent:
         mt = m1 + m2
 
         return w1 ** (m1 / mt) * w2 ** (m2 / mt)
+    """
+
+    def getWelfare(self, w1=None, w2=None, x=None, y=None):
+        # agent welfare function to determine if we need to find spice or sugar and also used in trading
+        # this formula is based on page 97 of the book "Growing Artificial Societies" by Epstein and Axtellf
+        m1 = self.sugarMetabolism
+        m2 = self.spiceMetabolism
+
+        if not w1 and not w2:
+            w1 = self.sugar
+            w2 = self.spice
+
+        if x and y:
+            x1 = self.env.getSugarCapacity((x, y))
+            x2 = self.env.getSpiceCapacity((x, y))
+
+            w1 = self.sugar + x1
+            w2 = self.spice + x2
+
+        mt = m1 + m2
+
+        if self.env.getHasTags():
+            # follows from page 125 of the book "Growing Artificial Societies" by Epstein and Axtell
+            tags = self.getTags()
+            f = float(bin(tags).count('1')) / float(self.tagsLength)
+            u = m1 * f + m2 * (1 - f)
+            return w1 ** ((m1 / u) * f) * w2 ** ((m2 / u) * (1 - f)) if w1 > 0 and w2 > 0 else 0
+
+        return w1 ** (m1 / mt) * w2 ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
 
     def getManhattanDistance(self, x, y):
         return abs(self.x - x) + abs(self.y - y)
@@ -393,7 +423,7 @@ class Agent:
         if not self.env.getHasSpice():
             for (x, y) in food:
                 location = (x, y)
-                sugarCapacity = self.env.getCapacity((x, y))
+                sugarCapacity = self.env.getSugarCapacity((x, y))
                 distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
                 locations.append((location, sugarCapacity, distance))
 
@@ -407,10 +437,9 @@ class Agent:
             best_sugar = best_location[1]
             self.setSugar(max(self.sugar + best_sugar, 0), "Move")
 
-
         else:
             for (x, y) in food:
-                welfare = self.getLocationWelfare(x, y)
+                welfare = self.getWelfare(x=x, y=y)
                 location = (x, y)
                 sugarCapacity = self.env.getSugarCapacity((x, y))
                 spiceCapacity = self.env.getSpiceCapacity((x, y))
@@ -440,19 +469,6 @@ class Agent:
 
         self.env.setSugarCapacity((self.x, self.y), 0)
         self.env.setSpiceCapacity((self.x, self.y), 0)
-
-    def getWelfare(self, w1=None, w2=None):
-        m1 = self.sugarMetabolism
-        m2 = self.spiceMetabolism
-
-        if not w1 and not w2:
-            w1 = self.sugar
-            w2 = self.spice
-
-        mt = m1 + m2
-
-        return w1 ** (m1 / mt) * w2 ** (
-                    m2 / mt) if w1 > 0 and w2 > 0 else 0
 
     # MRS means Marginal Rate of Substitution
     def getMRS(self, w1=None, w2=None):
@@ -567,15 +583,15 @@ class Agent:
             food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
                          if preyA != preyB
                          and preyB.getSugar() < (
-                                     C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))])
+                                 C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))])
         else:
             C1 = self.spice - self.spiceMetabolism
             food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
                          if preyA != preyB
                          and preyB.getSugar() < (
-                                     C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))
+                                 C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))
                          and preyB.getSpice() < (
-                                     C1 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSpice()))])
+                                 C1 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSpice()))])
 
         # randomize food locations
         random.shuffle(food)

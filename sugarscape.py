@@ -16,6 +16,8 @@ from wdgWealth import WdgWealth
 from wdgAgent import WdgAgent
 import tkinter as tk
 
+import matplotlib.pyplot as plt
+
 ''' 
 initial simulation parameters
 '''
@@ -85,7 +87,7 @@ ruleCombat = False
 ruleLimitedLife = False
 ruleReplacement = False
 ruleProcreate = False
-ruleTransmit = False
+ruleTransmit = True
 ruleSpice = True
 ruleTrade = True
 isRandom = False
@@ -245,6 +247,7 @@ class View:
 
     def hasStarved(self, agent):
         if agent.getSugar() <= 0:
+            agent.addLogEntry("Starved due to lack of sugar")
             # free environment
             self.env.setAgent(agent.getLocation(), None)
             # remove or replace agent
@@ -252,6 +255,7 @@ class View:
             return True
         if ruleSpice:
             if agent.getSpice() <= 0:
+                agent.addLogEntry("Starved due to lack of spice")
                 self.env.setAgent(agent.getLocation(), None)
                 self.removeAgent(agent)
                 return True
@@ -275,7 +279,6 @@ class View:
             # MOVE
             if ruleMoveEat:
                 agent.move()
-
 
             # COMBAT
             if ruleCombat:
@@ -366,29 +369,40 @@ class View:
             self.season = "NA"
             self.env.grow(growFactor)
 
+        if self.iteration % 500 == 0:
+            self.createPopulationPlot()
+            self.createWealthPlot()
+            self.createMetabolismVisionPlot()
+            if ruleTrade:
+                self.createTradePricePlot()
+                self.createTradeVolumePlot()
+                self.createGiniPlot()
+
+    def getFillColor(self, row, col):
+        current_agent = env.getAgent((row, col))
+        # change color of site depending on what's on it - but only if it wasn't already that color (performance optimization)
+        if current_agent:
+            fill_color = self.agentColorSchemes[agentColorScheme](self, current_agent)
+        else:
+            sugarCapacity = env.getSugarCapacity((row, col))
+            if not ruleSpice:
+                fill_color = lightenColor(colors["sugar"], sugarCapacity)
+            else:
+                spiceCapacity = env.getSpiceCapacity((row, col))
+                if sugarCapacity >= spiceCapacity:
+                    fill_color = lightenColor(colors["sugar"], sugarCapacity)
+                elif sugarCapacity < spiceCapacity:
+                    fill_color = lightenColor(colors["spice"], spiceCapacity)
+                else:
+                    fill_color = "white"
+        return fill_color
+
     def draw(self):
         for row, col in product(range(len(self.grid)), range(len(self.grid[0]))):
-            agent = env.getAgent((row, col))
-            # change color of site depending on what's on it - but only if it wasn't already that color (performance optimization)
-            if agent:
-                fill_color = self.agentColorSchemes[agentColorScheme](self, agent)
-            else:
-                sugarCapacity = env.getSugarCapacity((row, col))
-                if not ruleSpice:
-                    fill_color = lightenColor(colors["sugar"], sugarCapacity)
-                else:
-                    spiceCapacity = env.getSpiceCapacity((row, col))
-                    if sugarCapacity >= spiceCapacity:
-                        fill_color = lightenColor(colors["sugar"], sugarCapacity)
-                    elif sugarCapacity < spiceCapacity:
-                        fill_color = lightenColor(colors["spice"], spiceCapacity)
-                    else:
-                        fill_color = "white"
-
+            fill_color = self.getFillColor(row, col)
             if self.grid[row][col][1] != fill_color:
                 self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
                 self.grid[row][col] = (self.grid[row][col][0], fill_color)
-
         self.canvas.pack()
 
     # put drawing code here
@@ -399,23 +413,8 @@ class View:
             y1 = 5 + (.5 * self.siteSize) + col * self.siteSize - (.5 * self.siteSize)
             x2 = 5 + (.5 * self.siteSize) + row * self.siteSize + (.5 * self.siteSize)
             y2 = 5 + (.5 * self.siteSize) + col * self.siteSize + (.5 * self.siteSize)
-            agent = env.getAgent((row, col))
-            if agent:
-                fill_color = self.agentColorSchemes[agentColorScheme](self, agent)
 
-            else:
-                # display sugar's capacity
-                sugarCapacity = env.getSugarCapacity((row, col))
-                if not ruleSpice:
-                    fill_color = lightenColor(colors["sugar"], sugarCapacity)
-                else:
-                    spiceCapacity = env.getSpiceCapacity((row, col))
-                    if sugarCapacity >= spiceCapacity:
-                        fill_color = lightenColor(colors["sugar"], sugarCapacity)
-                    elif sugarCapacity < spiceCapacity:
-                        fill_color = lightenColor(colors["spice"], spiceCapacity)
-                    else:
-                        fill_color = "white"
+            fill_color = self.getFillColor(row, col)
             self.grid[row][col] = (
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
         self.canvas.pack()
@@ -427,17 +426,87 @@ class View:
         print("Pause: ", self.update)
         self.update = not self.update
 
-    def createPopulationPlot(self):
+    def createPPlot(self):
         self.popWidget = WdgPopulation(self.population, "Population time series", 1000, 300)
 
-    def createWealthPlot(self):
+    def createWPlot(self):
         print("Create wealth plot")
         self.wealthWidget = WdgWealth(self.agents, "Wealth histogram", 500, 500)
 
-    def createMetabolismPlot(self):
+    def createMPlot(self):
         print("Create metabolism plot")
         self.metabolismWidget = WdgAgent(self.metabolismMean, self.visionMean,
                                          "Agents' metabolism and vision mean values", 1000, 300)
+
+    def getAgentsWealth(self):
+        wealth = []
+        for agent in self.agents:
+            if not ruleSpice:
+                wealth.append(agent.getSugar())
+            else:
+                wealth.append(agent.getSugar() + agent.getSpice())
+        return wealth
+
+    # following plots will use matplotlib
+    def createPopulationPlot(self):
+        # create figure
+        fig, ax = plt.subplots()
+        ax.plot(self.population)
+        ax.set_title("Population time series")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Population")
+        plt.show()
+
+    def createWealthPlot(self):
+        # create figure
+        fig, ax = plt.subplots()
+        ax.hist(self.getAgentsWealth(), bins=10)
+        ax.set_title("Wealth histogram")
+        ax.set_xlabel("Wealth")
+        ax.set_ylabel("Number of agents")
+        plt.show()
+
+    def createMetabolismVisionPlot(self):
+        # create figure
+        fig, ax = plt.subplots()
+        ax.plot(self.metabolismMean, label="metabolism")
+        ax.plot(self.visionMean, label="vision")
+        ax.set_title("Agents' metabolism and vision mean values")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Mean value")
+        ax.legend()
+        plt.show()
+
+    def createTradePricePlot(self):
+        # create figure
+        fig, ax = plt.subplots()
+        index = list(range(len(self.tradePriceMean)))
+        ax.scatter(x=index, y=self.tradePriceMean, label="price", s=4)
+        ax.set_title("Mean trade price")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Mean price")
+        ax.legend()
+        plt.show()
+
+    def createTradeVolumePlot(self):
+        # create figure
+        fig, ax = plt.subplots()
+        ax.plot(self.tradeVolumeMean, label="volume")
+        ax.set_title("Mean trade volume")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Mean volume")
+        ax.legend()
+        plt.show()
+
+    def createGiniPlot(self):
+        # create figure
+        fig, ax = plt.subplots()
+        ax.plot(self.gini, label="gini")
+        ax.set_title("Gini")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Gini")
+        ax.legend()
+        plt.show()
 
     # the main game loop
     def createWindow(self):
@@ -450,9 +519,9 @@ class View:
         self.canvas = tk.Canvas(self.window, width=self.width, height=self.height, bg='white')
 
         self.window.bind("<Escape>", lambda x: self.setQuit())
-        self.window.bind("<F1>", lambda x: self.createPopulationPlot())
-        self.window.bind("<F2>", lambda x: self.createWealthPlot())
-        self.window.bind("<F3>", lambda x: self.createMetabolismPlot())
+        self.window.bind("<F1>", lambda x: self.createPPlot())
+        self.window.bind("<F2>", lambda x: self.createWPlot())
+        self.window.bind("<F3>", lambda x: self.createMPlot())
         self.window.bind("<F12>", lambda x: self.setPause())
         self.initialDraw()
         self.updateWindow()
