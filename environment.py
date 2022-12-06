@@ -24,10 +24,14 @@ class Environment:
                      range(  # was sugar, capacity, agent. now sugar, spice, sugar capacity, spice capacity, agent
                          height)]  # indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent
         self.hasSpice = False
+        self.hasTags = False
         self.time = 0
 
     def getHasSpice(self):
         return self.hasSpice
+
+    def getHasTags(self):
+        return self.hasTags
 
     def setSugarCapacity(self, location, value):
         (i, j) = location
