@@ -43,11 +43,11 @@ class Environment:
 
     def getSugarCapacity(self, location):
         (i, j) = location
-        return int(self.grid[i][j][0])
+        return self.grid[i][j][0]
 
     def getSpiceCapacity(self, location):
         (i, j) = location
-        return int(self.grid[i][j][1])
+        return self.grid[i][j][1]
 
     def decCapacity(self, location, value):
         (i, j) = location
@@ -57,26 +57,24 @@ class Environment:
         (i, j) = location
         self.grid[i][j][1] = max(0, self.grid[i][j][3] - value)
 
-    def addSugarSite(self, location, maxCapacity):
+    def addSiteHelper(self, location, maxCapacity, sugar):
         # calculate radial dispersion of capacity from maxCapacity to 0
         (si, sj, r) = location
         distance = lambda di, dj: sqrt(di * di + dj * dj)
         D = distance(max(si, self.gridWidth - si), max(sj, self.gridHeight - sj)) * (r / float(self.gridWidth))
         for i, j in product(range(self.gridWidth), range(self.gridHeight)):
             c = min(1 + maxCapacity * (1 - distance(si - i, sj - j) / D), maxCapacity)
-            if c > self.grid[i][j][2]:
-                self.grid[i][j][2] = c
+            if c > self.grid[i][j][2 if sugar else 3]:
+                self.grid[i][j][2 if sugar else 3] = c
+
+    def addSugarSite(self, location, maxCapacity):
+        # calculate radial dispersion of capacity from maxCapacity to 0
+        self.addSiteHelper(location, maxCapacity, True)
 
     def addSpiceSite(self, location, maxCapacity):
         self.hasSpice = True
         # calculate radial dispersion of capacity from maxCapacity to 0
-        (si, sj, r) = location
-        distance = lambda di, dj: sqrt(di * di + dj * dj)
-        D = distance(max(si, self.gridWidth - si), max(sj, self.gridHeight - sj)) * (r / float(self.gridWidth))
-        for i, j in product(range(self.gridWidth), range(self.gridHeight)):
-            c = min(1 + maxCapacity * (1 - distance(si - i, sj - j) / D), maxCapacity)
-            if c > self.grid[i][j][3]:
-                self.grid[i][j][3] = c
+        self.addSiteHelper(location, maxCapacity, False)
 
     def growHelper(self, location, alpha):
         hasSpice = self.getHasSpice()
@@ -85,7 +83,6 @@ class Environment:
 
         if hasSpice:
             self.grid[i][j][1] = min(self.grid[i][j][1] + alpha, self.grid[i][j][3])
-
 
     def grow(self, alpha):
         hasSpice = self.getHasSpice()
