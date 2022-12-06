@@ -57,7 +57,7 @@ class Agent:
         self.addLogEntry(move_str)
 
     def getLocation(self):
-        return (self.x, self.y)
+        return self.x, self.y
 
     def setSugarMetabolism(self, metabolism):
         self.sugarMetabolism = metabolism
