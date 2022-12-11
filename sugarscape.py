@@ -5,15 +5,11 @@ Created on 2010-04-17
 
 Updated by joshuapalicka
 '''
-
 import random
 import time
 from itertools import product
 from environment import Environment
 from agent import Agent
-from wdgPopulation import WdgPopulation
-from wdgWealth import WdgWealth
-from wdgAgent import WdgAgent
 import tkinter as tk
 
 import matplotlib.pyplot as plt
@@ -26,6 +22,7 @@ initial simulation parameters
 screenSize = 600, 600
 gridSize = 50, 50
 colorBackground = 250, 250, 250
+graphUpdateFrequency = 10  # graph updates every graphUpdateFrequency frames
 
 # display colors
 colors = {
@@ -78,18 +75,19 @@ tags1 = 2 ** tagsLength - 1
 # Active settings
 agentColorScheme = 4
 distributions = [
-    (100, tags0, (0, 50, 0, 50)),  # blues
-    (100, tags1, (0, 50, 0, 50))]  # reds
+    (50, tags0, (0, 50, 0, 50)),  # blues
+    (50, tags1, (0, 50, 0, 50))]  # reds
 ruleGrow = True
 ruleSeasons = False
 ruleMoveEat = True  # move eat and combat need to be exclusive
 ruleCombat = False
-ruleLimitedLife = False
+ruleLimitedLife = True
 ruleReplacement = False
-ruleProcreate = False
-ruleTransmit = True
+ruleProcreate = True
+ruleTransmit = False
 ruleSpice = True
 ruleTrade = True
+ruleCredit = True
 isRandom = False
 combatAlpha = 1000000
 
@@ -105,7 +103,7 @@ def hexToRGB(hex):
     """ #FFFFFF -> (255, 255, 255) """
     hex = hex.lstrip('#')
     hlen = len(hex)
-    return tuple(int(hex[i:i + hlen // 3], 16) for i in range(0, hlen, hlen // 3))
+    return tuple(int(hex[i:i + hlen // 3], 16) for _ in range(0, hlen, hlen // 3))
 
 
 def RGBToHex(rgb):
@@ -136,7 +134,7 @@ def initAgent(agent, tags, distribution):
     agent.setSex(sex)
     agent.setFertility((random.randint(childbearing[sex][0], childbearing[sex][1]),
                         random.randint(childbearing[sex][2], childbearing[sex][3])))
-    if tags == None:
+    if tags is None:
         tags = random.getrandbits(tagsLength)
     agent.setTags((tags, tagsLength))
     return True
@@ -167,8 +165,9 @@ class View:
         # init view
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
         self.window, self.canvas = None, None
-        self.height, self.width = screenSize[0] + 5, screenSize[1] + 5
-        self.update = None
+        self.height, self.width = screenSize[0] + 50, screenSize[1]
+        self.pause = False
+        self.updateScreen = True
         self.quit = False
         self.siteSize = screenSize[0] / env.gridWidth
         self.radius = int(self.siteSize * 0.5)
@@ -261,19 +260,20 @@ class View:
                 return True
         return False
 
-    # put game update code here
+    #  put game update code here
     def updateGame(self):
         # for agents' logs
         sugarMetabolism = 0
         if ruleSpice:
             spiceMetabolism = 0
+
         vision = 0
         wealth = []
+        trades = []
 
         # execute agents randomly
         random.shuffle(self.agents)
 
-        trades = []
         # run agents' rules
         for agent in self.agents:
             # MOVE
@@ -299,8 +299,7 @@ class View:
                         break
 
             if ruleTrade:
-                for trade in agent.trade():
-                    trades.append(trade)  # returns a list of trade prices
+                trades.extend(agent.trade())
 
             # TRANSMIT
             if ruleTransmit:
@@ -339,16 +338,16 @@ class View:
         self.population.append(numAgents)
 
         # Calculate and log agents' metabolism and vision mean values
-        if numAgents > 0:
-            if not ruleSpice:
-                self.metabolismMean.append(sugarMetabolism / numAgents)
-            else:
-                self.metabolismMean.append(((sugarMetabolism + spiceMetabolism) / 2) / float(numAgents))
+        if not ruleSpice:
+            self.metabolismMean.append(sugarMetabolism / numAgents if numAgents > 0 else 0)
+        else:
+            self.metabolismMean.append(
+                ((sugarMetabolism + spiceMetabolism) / 2) / float(numAgents) if numAgents > 0 else 0)
 
-            self.visionMean.append(vision / float(numAgents))
-            self.tradePriceMean.append(sum(trades) / len(trades)) if len(trades) > 0 else self.tradePriceMean.append(0)
-            self.tradeVolumeMean.append(len(trades)) if len(trades) > 0 else self.tradeVolumeMean.append(0)
-            self.gini.append(calculateGini(wealth))
+        self.visionMean.append(vision / float(numAgents) if numAgents > 0 else 0)
+        self.tradePriceMean.append(sum(trades) / len(trades)) if len(trades) > 0 else self.tradePriceMean.append(0)
+        self.tradeVolumeMean.append(len(trades)) if len(trades) > 0 else self.tradeVolumeMean.append(0)
+        self.gini.append(calculateGini(wealth) if numAgents > 0 else 0)
 
         # run environment's rules
         if ruleSeasons:
@@ -369,14 +368,9 @@ class View:
             self.season = "NA"
             self.env.grow(growFactor)
 
-        if self.iteration % 500 == 0:
-            self.createPopulationPlot()
-            self.createWealthPlot()
-            self.createMetabolismVisionPlot()
-            if ruleTrade:
-                self.createTradePricePlot()
-                self.createTradeVolumePlot()
-                self.createGiniPlot()
+        if self.iteration % graphUpdateFrequency == 0:
+            if len(self.onGraphs) > 0:
+                self.updateGraphs()
 
     def getFillColor(self, row, col):
         current_agent = env.getAgent((row, col))
@@ -403,7 +397,6 @@ class View:
             if self.grid[row][col][1] != fill_color:
                 self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
                 self.grid[row][col] = (self.grid[row][col][0], fill_color)
-        self.canvas.pack()
 
     # put drawing code here
     def initialDraw(self):
@@ -417,26 +410,17 @@ class View:
             fill_color = self.getFillColor(row, col)
             self.grid[row][col] = (
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
-        self.canvas.pack()
 
     def setQuit(self):
         self.quit = True
 
-    def setPause(self):
-        print("Pause: ", self.update)
-        self.update = not self.update
+    def togglePause(self):
+        print("Pause: ", self.pause)
+        self.pause = not self.pause
 
-    def createPPlot(self):
-        self.popWidget = WdgPopulation(self.population, "Population time series", 1000, 300)
-
-    def createWPlot(self):
-        print("Create wealth plot")
-        self.wealthWidget = WdgWealth(self.agents, "Wealth histogram", 500, 500)
-
-    def createMPlot(self):
-        print("Create metabolism plot")
-        self.metabolismWidget = WdgAgent(self.metabolismMean, self.visionMean,
-                                         "Agents' metabolism and vision mean values", 1000, 300)
+    def toggleUpdateScreen(self):
+        print("Update: ", self.updateScreen)
+        self.updateScreen = not self.updateScreen
 
     def getAgentsWealth(self):
         wealth = []
@@ -447,82 +431,163 @@ class View:
                 wealth.append(agent.getSugar() + agent.getSpice())
         return wealth
 
-    # following plots will use matplotlib
-    def createPopulationPlot(self):
+    def updatePopulationPlot(self, ax_idx):
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
         # create figure
-        fig, ax = plt.subplots()
-        ax.plot(self.population)
+        ax.plot(range(len(self.population)), self.population)
         ax.set_title("Population time series")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Population")
-        plt.show()
+        self.figs[ax_idx] = (fig, ax)
 
-    def createWealthPlot(self):
+    def updateWealthPlot(self, ax_idx):
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
         # create figure
-        fig, ax = plt.subplots()
         ax.hist(self.getAgentsWealth(), bins=10)
         ax.set_title("Wealth histogram")
         ax.set_xlabel("Wealth")
         ax.set_ylabel("Number of agents")
-        plt.show()
+        self.figs[ax_idx] = (fig, ax)
 
-    def createMetabolismVisionPlot(self):
-        # create figure
-        fig, ax = plt.subplots()
+    def updateMetabolismVisionPlot(self, ax_idx):
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
         ax.plot(self.metabolismMean, label="metabolism")
         ax.plot(self.visionMean, label="vision")
         ax.set_title("Agents' metabolism and vision mean values")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean value")
         ax.legend()
-        plt.show()
+        self.figs[ax_idx] = (fig, ax)
 
-    def createTradePricePlot(self):
+    def updateTradePricePlot(self, ax_idx):
         # create figure
-        fig, ax = plt.subplots()
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
         index = list(range(len(self.tradePriceMean)))
         ax.scatter(x=index, y=self.tradePriceMean, label="price", s=4)
         ax.set_title("Mean trade price")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean price")
         ax.legend()
-        plt.show()
+        self.figs[ax_idx] = (fig, ax)
 
-    def createTradeVolumePlot(self):
+    def updateTradeVolumePlot(self, ax_idx):
         # create figure
-        fig, ax = plt.subplots()
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
         ax.plot(self.tradeVolumeMean, label="volume")
         ax.set_title("Mean trade volume")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean volume")
         ax.legend()
-        plt.show()
+        self.figs[ax_idx] = (fig, ax)
 
-    def createGiniPlot(self):
+    def updateGiniPlot(self, ax_idx):
         # create figure
-        fig, ax = plt.subplots()
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
         ax.plot(self.gini, label="gini")
         ax.set_title("Gini")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Gini")
         ax.legend()
-        plt.show()
+        self.figs[ax_idx] = (fig, ax)
+
+    def populateOptions(self):  # TODO: Add more graphs and options
+        # populate graph options depending on the rules
+        self.options = []
+
+        self.options.append("Population")
+        self.options.append("Wealth")
+        self.options.append("Metabolism and vision")
+        if ruleTrade:
+            self.options.append("Trade price")
+            self.options.append("Trade volume")
+            self.options.append("Gini")
+
+        self.offGraphs = self.options.copy()
+        self.onGraphs = []
+
+    def updateGraphList(self, *args):
+        new_onGraph = self.variable.get()
+        if new_onGraph in self.offGraphs:
+            self.offGraphs.remove(new_onGraph)
+            self.onGraphs.append(new_onGraph)
+        elif new_onGraph in self.onGraphs:
+            self.onGraphs.remove(new_onGraph)
+            self.offGraphs.append(new_onGraph)
+        self.updateGraphs()
+
+    def checkAddFig(self):
+        while len(self.onGraphs) > len(self.figs):
+            print("Adding fig")
+            fig, ax = plt.subplots()
+            self.figs.append((fig, ax))
+
+    def updateGraphs(self):
+        self.checkAddFig()
+        totalPlots = len(self.onGraphs)
+        for i in range(totalPlots):
+            if self.onGraphs[i] == "Population":
+                self.updatePopulationPlot(i)
+            elif self.onGraphs[i] == "Wealth":
+                self.updateWealthPlot(i)
+            elif self.onGraphs[i] == "Metabolism and vision":
+                self.updateMetabolismVisionPlot(i)
+            elif self.onGraphs[i] == "Trade price":
+                self.updateTradePricePlot(i)
+            elif self.onGraphs[i] == "Trade volume":
+                self.updateTradeVolumePlot(i)
+            elif self.onGraphs[i] == "Gini":
+                self.updateGiniPlot(i)
+            self.figs[i][0].canvas.draw()
+            self.figs[i][0].canvas.flush_events()
+
+        if totalPlots < len(self.figs):
+            for _ in range(len(self.figs) - totalPlots):
+                fig = self.figs.pop()
+                plt.close(fig[0])
 
     # the main game loop
     def createWindow(self):
         self.update = True
+        plt.ion()
+        self.figs = []
+        self.populateOptions()
         self.window = tk.Tk()
         self.window.title("Sugarscape")
-        self.window.geometry("%dx%d" % (self.width + 5, self.height + 5))
+        self.window.geometry("%dx%d" % (self.width + 5, self.height - 5))
         self.window.resizable(True, True)
         self.window.configure(background='white')
+
         self.canvas = tk.Canvas(self.window, width=self.width, height=self.height, bg='white')
 
+        self.btnQuit = tk.Button(self.window, text="Quit", command=self.setQuit)
+        self.btnQuit.grid(row=0, column=0, sticky="nsew")
+
+        self.btnPlay = tk.Button(self.window, text="Play/Pause", command=self.togglePause)
+        self.btnPlay.grid(row=0, column=1, sticky="nsew")
+
+        self.btnUpdate = tk.Button(self.window, text="Update Screen", command=self.toggleUpdateScreen)
+        self.btnUpdate.grid(row=0, column=2, sticky="nsew")
+
+        self.variable = tk.StringVar(self.window)
+        self.variable.set(self.options[0])  # default value
+        self.menubutton = tk.Menubutton(self.window, text="Graphs", relief=tk.RAISED)
+        self.menu = tk.Menu(self.menubutton, tearoff=0)
+        self.menubutton.configure(menu=self.menu)
+        for option in self.options:
+            self.menu.add_checkbutton(label=option, onvalue=option, offvalue=option, variable=self.variable,
+                                      command=self.updateGraphList)
+        self.menubutton.grid(row=0, column=3, sticky="nsew")
+
+        self.canvas.grid(row=1, column=0, columnspan=4, sticky="nsew")
+
         self.window.bind("<Escape>", lambda x: self.setQuit())
-        self.window.bind("<F1>", lambda x: self.createPPlot())
-        self.window.bind("<F2>", lambda x: self.createWPlot())
-        self.window.bind("<F3>", lambda x: self.createMPlot())
-        self.window.bind("<F12>", lambda x: self.setPause())
+
         self.initialDraw()
         self.updateWindow()
 
@@ -530,37 +595,25 @@ class View:
         while not self.quit:
             last_time = time.time()
             # update sugarscape
-            if self.update:
+            if not self.pause:
                 self.updateGame()
                 self.iteration += 1
                 env.incrementTime()
 
-            # display sugarscape state
-            self.draw()
+                # display sugarscape state
+                if self.updateScreen:
+                    self.draw()
+
+                # calculate and display the framerate
+                time_now = time.time()
+                time_since_last_frame = time_now - last_time
+                framerate = int(round(1.0 / time_since_last_frame, 0))
+
+                # display infos
+                if self.update:
+                    print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
+                          "; Population = ", len(self.agents), " -  press F12 to pause.")
             self.window.update()
-
-            if self.popWidget:
-                self.popWidget.update(self.population)
-                if self.iteration >= 900 and self.iteration % 100 == 0:
-                    self.popWidget.makeWider()  # TODO: hacky -- will be fixed (probably by removal of these widgets)
-
-            if self.wealthWidget:
-                self.wealthWidget.update(self.agents)
-
-            if self.metabolismWidget:
-                self.metabolismWidget.update(self.metabolismMean, self.visionMean)
-                if self.iteration >= 900 and self.iteration % 100 == 0:
-                    self.metabolismWidget.makeWider()  # TODO: hacky -- will be fixed (probably by removal of these widgets)
-
-            # calculate and display the framerate
-            time_now = time.time()
-            time_since_last_frame = time_now - last_time
-            framerate = int(round(1.0 / time_since_last_frame, 0))
-
-            # display infos
-            if self.update:
-                print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
-                      "; Population = ", len(self.agents), " -  press F12 to pause.")
 
 
 ''' 
