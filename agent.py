@@ -41,6 +41,10 @@ class Agent:
         self.setInitialSugarEndowment(sugarEndowment)
         self.setInitialSpiceEndowment(spiceEndowment)
         self.setTags(tags)
+        self.immuneSystem = ""
+        self.diseases = {}
+        self.numAfflictedDiseases = 0
+
 
     ''' 
     get / set section 
@@ -351,23 +355,6 @@ class Agent:
         self.env.setAgent((x, y), child)
         return child
 
-    """
-    def getLocationWelfare(self, x, y):
-
-        m1 = self.sugarMetabolism
-        m2 = self.spiceMetabolism
-
-        x1 = self.env.getSugarCapacity((x, y))
-        x2 = self.env.getSpiceCapacity((x, y))
-
-        w1 = self.sugar + x1
-        w2 = self.spice + x2
-
-        mt = m1 + m2
-
-        return w1 ** (m1 / mt) * w2 ** (m2 / mt)
-    """
-
     def getWelfare(self, w1=None, w2=None, x=None, y=None):
         # agent welfare function to determine if we need to find spice or sugar and also used in trading
         # this formula is based on page 97 of the book "Growing Artificial Societies" by Epstein and Axtellf
@@ -633,6 +620,7 @@ class Agent:
             self.setSpice(max(self.spice + best, 0), "Move")
         self.env.setCapacity((self.x, self.y), 0)
         return killed
+
         """
         Concept: Disease
 
@@ -649,9 +637,10 @@ class Agent:
         "For each neighbor, a disease that currently afflicts the agent is selected at random and given to the neighbor."
         """
 
-    def getHammingDistance(self,
-                           disease):  # returns the smallest bitwise distance between a substring of agent immune system and disease
+    def getHammingDistance(self, disease):  # returns the smallest bitwise distance between a substring of agent immune system and disease
         diseaseLength = self.env.getDiseaseLength()
+        lowestNumber = 0
+        bestLoc = 0
         for i in range(len(self.immuneSystem) - diseaseLength):
             immuneSystemSubstr = self.immuneSystem[i:i + 5]
             smallestDist = 0
@@ -666,8 +655,9 @@ class Agent:
         smallestDist, bestLoc = self.getHammingDistance(disease)
         if smallestDist != 0:
             self.diseases[disease] = bestLoc
-            self.numDiseases += 1
-            self.sugarMetabolism += 1  # TODO: spice? do we need to decrement?
+            self.numAfflictedDiseases += 1
+            self.sugarMetabolism += 1
+            self.addLogEntry("Contracted disease: " + str(disease))
 
     def updateHelper(self, disease, immuneSubstr):  # updates immuneSubstr to match disease 1 hamming distance better
         for i in range(len(immuneSubstr)):
@@ -687,11 +677,15 @@ class Agent:
             if loc - 1 == 0:
                 del self.diseases[disease]
                 self.sugarMetabolism -= 1
+                self.addLogEntry("Gained immunity to disease: " + str(disease))
                 continue
             self.diseases[disease] = loc - 1
 
     def disease(self):  # give random disease to each neighbor
         self.updateImmuneSystem()
-        if self.numDiseases != 0:
+        if self.numAfflictedDiseases != 0:
             for neighbor in self.getNeighbourhood():
                 neighbor.addDisease(random.choice(list(self.diseases.keys())))
+
+    def addRandomDisease(self):
+        self.addDisease(random.choice(self.env.getDiseases()))

@@ -86,13 +86,11 @@ class Environment:
             self.grid[i][j][1] = min(self.grid[i][j][1] + alpha, self.grid[i][j][3])
 
     def grow(self, alpha):
-        hasSpice = self.getHasSpice()
         # grow to maxCapacity with alpha 
         for i, j in product(range(self.gridWidth), range(self.gridHeight)):
             self.growHelper((i, j), alpha)
 
     def growRegion(self, region, alpha):
-        hasSpice = self.getHasSpice()
         # grow  region to maxCapacity with alpha
         (imin, jmin, imax, jmax) = region
         imin = max(imin, 0)
@@ -139,7 +137,7 @@ class Environment:
     def generateDisease(self):
         disease = ""
         for i in range(self.diseaseLength):
-            disease += random.randint(0, 1)
+            disease += str(random.randint(0, 1))
         self.diseases.append(disease)
 
     def setDiseaseLength(self, diseaseLength):
@@ -147,3 +145,12 @@ class Environment:
 
     def getDiseaseLength(self):
         return self.diseaseLength
+
+    def setImmuneSystemSize(self, size):
+        self.immuneSystemSize = size
+
+    def setHasDisease(self, hasDisease):
+        self.hasDisease = hasDisease
+
+    def getDiseases(self):
+        return self.diseases

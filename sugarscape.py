@@ -41,7 +41,6 @@ sites = {
     "southwest": (15, 35, 18),
     "southeast": (40, 40, 14),
     "northwest": (10, 10, 14)
-
 }
 
 maxCapacity = 10  # !!! < or = nbr items in colorSugar array
@@ -115,7 +114,7 @@ def hexToRGB(hex):
     """ #FFFFFF -> (255, 255, 255) """
     hex = hex.lstrip('#')
     hlen = len(hex)
-    return tuple(int(hex[i:i + hlen // 3], 16) for _ in range(0, hlen, hlen // 3))
+    return tuple(int(hex[i:i + hlen // 3], 16) for i in range(0, hlen, hlen // 3))
 
 
 def RGBToHex(rgb):
@@ -311,11 +310,7 @@ class View:
                         break
                         
             if rules["disease"]:
-                env.sethasDisease(True)
-                env.setImmuneSystemSize(immuneSystemSize)
-                env.setDiseaseLength(diseaseLength)
-                for i in range(numDiseases):
-                    env.generateDisease()
+                agent.disease()
 
             if rules["trade"]:
                 trades.extend(agent.trade())
@@ -660,6 +655,13 @@ if __name__ == '__main__':
     if rules["grow"]:
         env.grow(maxCapacity)
 
+    if rules["disease"]:
+        env.setHasDisease(True)
+        env.setImmuneSystemSize(immuneSystemSize)
+        env.setDiseaseLength(diseaseLength)
+        for i in range(numDiseases):
+            env.generateDisease()
+
     # create a list of agents and place them in env
     agents = []
     for (numAgents, tags, distribution) in distributions:
@@ -667,6 +669,8 @@ if __name__ == '__main__':
             agent = Agent(env)
             if initAgent(agent, tags, distribution):
                 env.setAgent(agent.getLocation(), agent)
+                if rules["disease"]:
+                    agent.addRandomDisease()
                 agents.append(agent)
 
     # Create a view with an env and a list of agents in env
