@@ -308,6 +308,13 @@ class View:
                         self.agents.append(next(mateItr))
                     except StopIteration:
                         break
+                        
+            if rules["disease"]:
+                env.sethasDisease(True)
+                env.setImmuneSystemSize(immuneSystemSize)
+                env.setDiseaseLength(diseaseLength)
+                for i in range(numDiseases):
+                    env.generateDisease()
 
             if rules["trade"]:
                 trades.extend(agent.trade())
