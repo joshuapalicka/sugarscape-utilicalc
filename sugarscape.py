@@ -3,8 +3,9 @@ Created on 2010-04-17
 
 @author: rv
 
-Updated by joshuapalicka
+Updated/extended by joshuapalicka
 '''
+
 import random
 import time
 from itertools import product
@@ -22,7 +23,7 @@ initial simulation parameters
 screenSize = 600, 600
 gridSize = 50, 50
 colorBackground = 250, 250, 250
-graphUpdateFrequency = 10  # graph updates every graphUpdateFrequency frames
+graphUpdateFrequency = 10  # graphs update every graphUpdateFrequency frames
 
 # display colors
 colors = {
@@ -71,23 +72,33 @@ childbearing = fertility[0], fertility[1]  # female , male
 tagsLength = 5  # must be odd
 tags0 = 0
 tags1 = 2 ** tagsLength - 1
+loanRate = 1.05
+loanDuration = 10
+immuneSystemSize = 10
 
 # Active settings
 agentColorScheme = 4
 distributions = [
     (50, tags0, (0, 50, 0, 50)),  # blues
     (50, tags1, (0, 50, 0, 50))]  # reds
-ruleGrow = True
-ruleSeasons = False
-ruleMoveEat = True  # move eat and combat need to be exclusive
-ruleCombat = False
-ruleLimitedLife = True
-ruleReplacement = False
-ruleProcreate = True
-ruleTransmit = False
-ruleSpice = True
-ruleTrade = True
-ruleCredit = True
+
+rules = {
+    "grow": True,
+    "seasons": False,
+    "moveEat": True,  # move eat and combat need to be exclusive
+    "combat": False,
+    "limitedLife": True,
+    "replacement": False,
+    "procreate": True,
+    "transmit": False,
+    "spice": True,
+    "trade": True,
+    "credit": True,
+    "inheritance": False,
+    "disease": True
+}
+
+
 isRandom = False
 combatAlpha = 1000000
 
@@ -125,7 +136,7 @@ def initAgent(agent, tags, distribution):
     agent.setLocation(newLocation)
     agent.setSugarMetabolism(random.randint(1, maxAgentMetabolism))
     agent.setInitialSugarEndowment(random.randint(initEndowment[0], initEndowment[1]))
-    if ruleSpice:
+    if rules["spice"]:
         agent.setSpiceMetabolism(random.randint(1, maxAgentMetabolism))
         agent.setInitialSpiceEndowment(random.randint(initEndowment[0], initEndowment[1]))
     agent.setVision(random.randint(1, maxAgentVision))
@@ -233,7 +244,7 @@ class View:
 
     # replace or remove agent
     def removeAgent(self, agent):
-        if ruleReplacement:
+        if rules["replacement"]:
             # replace with agent of same tribe
             tags = agent.getTags()
             if initAgent(agent, tags, self.findDistribution(tags)):
@@ -252,7 +263,7 @@ class View:
             # remove or replace agent
             self.removeAgent(agent)
             return True
-        if ruleSpice:
+        if rules["spice"]:
             if agent.getSpice() <= 0:
                 agent.addLogEntry("Starved due to lack of spice")
                 self.env.setAgent(agent.getLocation(), None)
@@ -264,7 +275,7 @@ class View:
     def updateGame(self):
         # for agents' logs
         sugarMetabolism = 0
-        if ruleSpice:
+        if rules["spice"]:
             spiceMetabolism = 0
 
         vision = 0
@@ -277,11 +288,11 @@ class View:
         # run agents' rules
         for agent in self.agents:
             # MOVE
-            if ruleMoveEat:
+            if rules["moveEat"]:
                 agent.move()
 
             # COMBAT
-            if ruleCombat:
+            if rules["combat"]:
                 killed = agent.combat(combatAlpha)
                 # if an agent has been killed, remove it
                 if killed:
@@ -289,7 +300,7 @@ class View:
                     self.removeAgent(killed)
 
             # PROCREATE
-            if ruleProcreate and agent.isFertile():
+            if rules["procreate"] and agent.isFertile():
                 mateItr = agent.mate()
                 while True:
                     try:
@@ -298,16 +309,16 @@ class View:
                     except StopIteration:
                         break
 
-            if ruleTrade:
+            if rules["trade"]:
                 trades.extend(agent.trade())
 
             # TRANSMIT
-            if ruleTransmit:
+            if rules["transmit"]:
                 agent.transmit()
 
             agent.setSugar(max(agent.getSugar() - agent.getSugarMetabolism(), 0), "Metabolism")
 
-            if ruleSpice:
+            if rules["spice"]:
                 agent.setSpice(max(agent.getSpice() - agent.getSpiceMetabolism(), 0), "Metabolism")
 
             if self.hasStarved(agent):
@@ -315,11 +326,11 @@ class View:
 
             # Log agent's parameters
             sugarMetabolism += agent.getSugarMetabolism()
-            if ruleSpice:
+            if rules["spice"]:
                 spiceMetabolism += agent.getSpiceMetabolism()
             vision += agent.getVision()
 
-            if not ruleSpice:
+            if not rules["spice"]:
                 wealth.append(agent.getSugar())
             else:
                 wealth.append(agent.getSugar() + agent.getSpice())
@@ -327,7 +338,7 @@ class View:
             # DIE
             # increment age
             alive = agent.incAge()
-            if ruleLimitedLife and not alive:
+            if rules["limitedLife"] and not alive:
                 # free environment
                 self.env.setAgent(agent.getLocation(), None)
                 # remove or replace agent
@@ -338,7 +349,7 @@ class View:
         self.population.append(numAgents)
 
         # Calculate and log agents' metabolism and vision mean values
-        if not ruleSpice:
+        if not rules["spice"]:
             self.metabolismMean.append(sugarMetabolism / numAgents if numAgents > 0 else 0)
         else:
             self.metabolismMean.append(
@@ -350,21 +361,21 @@ class View:
         self.gini.append(calculateGini(wealth) if numAgents > 0 else 0)
 
         # run environment's rules
-        if ruleSeasons:
+        if rules["seasons"]:
             S = (self.iteration % (2 * seasonPeriod)) / seasonPeriod
             if S < 1:
                 # Summer
                 self.season = "(summer, winter)"
-                if ruleGrow:
+                if rules["grow"]:
                     self.env.growRegion(seasonRegions["north"], growFactor1)
                     self.env.growRegion(seasonRegions["south"], growFactor2)
             else:
                 # winter
                 self.season = "(winter, summer)"
-                if ruleGrow:
+                if rules["grow"]:
                     self.env.growRegion(seasonRegions["north"], growFactor2)
                     self.env.growRegion(seasonRegions["south"], growFactor1)
-        elif ruleGrow:
+        elif rules["grow"]:
             self.season = "NA"
             self.env.grow(growFactor)
 
@@ -379,7 +390,7 @@ class View:
             fill_color = self.agentColorSchemes[agentColorScheme](self, current_agent)
         else:
             sugarCapacity = env.getSugarCapacity((row, col))
-            if not ruleSpice:
+            if not rules["spice"]:
                 fill_color = lightenColor(colors["sugar"], sugarCapacity)
             else:
                 spiceCapacity = env.getSpiceCapacity((row, col))
@@ -425,7 +436,7 @@ class View:
     def getAgentsWealth(self):
         wealth = []
         for agent in self.agents:
-            if not ruleSpice:
+            if not rules["spice"]:
                 wealth.append(agent.getSugar())
             else:
                 wealth.append(agent.getSugar() + agent.getSpice())
@@ -503,7 +514,7 @@ class View:
         self.options.append("Population")
         self.options.append("Wealth")
         self.options.append("Metabolism and vision")
-        if ruleTrade:
+        if rules["trade"]:
             self.options.append("Trade price")
             self.options.append("Trade volume")
             self.options.append("Gini")
@@ -630,7 +641,7 @@ if __name__ == '__main__':
     # add radial food site 
     env.addSugarSite(sites["southwest"], maxCapacity)
 
-    if ruleSpice:
+    if rules["spice"]:
         # add radial food site
         env.addSpiceSite(sites["southeast"], maxCapacity)
 
@@ -638,7 +649,7 @@ if __name__ == '__main__':
         env.addSpiceSite(sites["northwest"], maxCapacity)
 
     # grow to max capacity
-    if ruleGrow:
+    if rules["grow"]:
         env.grow(maxCapacity)
 
     # create a list of agents and place them in env
