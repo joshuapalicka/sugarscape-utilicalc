@@ -74,7 +74,9 @@ tags0 = 0
 tags1 = 2 ** tagsLength - 1
 loanRate = 1.05
 loanDuration = 10
-immuneSystemSize = 10
+immuneSystemSize = 10  # number of bits per immune system
+diseaseLength = 5  # number of bits per disease
+numDiseases = 5
 
 # Active settings
 agentColorScheme = 4
@@ -97,7 +99,6 @@ rules = {
     "inheritance": False,
     "disease": True
 }
-
 
 isRandom = False
 combatAlpha = 1000000

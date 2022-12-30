@@ -25,6 +25,7 @@ class Environment:
                          height)]  # indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent
         self.hasSpice = False
         self.hasTags = False
+        self.diseases = []
         self.time = 0
 
     def getHasSpice(self):
