@@ -134,3 +134,15 @@ class Environment:
 
     def getTime(self):
         return self.time
+
+    def generateDisease(self):
+        disease = ""
+        for i in range(self.diseaseLength):
+            disease += random.randint(0, 1)
+        self.diseases.append(disease)
+
+    def setDiseaseLength(self, diseaseLength):
+        self.diseaseLength = diseaseLength
+
+    def getDiseaseLength(self):
+        return self.diseaseLength
