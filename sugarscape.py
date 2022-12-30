@@ -194,6 +194,7 @@ class View:
         self.tradePriceMean = []
         self.tradeVolumeMean = []
         self.gini = []
+        self.numInfectedAgents = []
 
         # init time
         self.iteration = 0
@@ -363,6 +364,12 @@ class View:
         self.tradeVolumeMean.append(len(trades)) if len(trades) > 0 else self.tradeVolumeMean.append(0)
         self.gini.append(calculateGini(wealth) if numAgents > 0 else 0)
 
+        if rules["disease"]:
+            numInfected = 0
+            for agent in self.agents:
+                numInfected += 1 if agent.getNumAfflictedDiseases() > 0 else 0
+            self.numInfectedAgents.append(numInfected)
+
         # run environment's rules
         if rules["seasons"]:
             S = (self.iteration % (2 * seasonPeriod)) / seasonPeriod
@@ -510,6 +517,16 @@ class View:
         ax.legend()
         self.figs[ax_idx] = (fig, ax)
 
+    def updateInfectedPlot(self, ax_idx):
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
+        # create figure
+        ax.plot(range(len(self.numInfectedAgents)), self.numInfectedAgents)
+        ax.set_title("Infected Agents time series")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Number of Infected Agents")
+        self.figs[ax_idx] = (fig, ax)
+
     def populateOptions(self):  # TODO: Add more graphs and options
         # populate graph options depending on the rules
         self.options = []
@@ -521,6 +538,9 @@ class View:
             self.options.append("Trade price")
             self.options.append("Trade volume")
             self.options.append("Gini")
+
+        if rules["disease"]:
+            self.options.append("Number of Infected")
 
         self.offGraphs = self.options.copy()
         self.onGraphs = []
@@ -541,7 +561,7 @@ class View:
             fig, ax = plt.subplots()
             self.figs.append((fig, ax))
 
-    def updateGraphs(self):
+    def updateGraphs(self): # once match case becomes more standard, this can be rewritten to make more pythonic
         self.checkAddFig()
         totalPlots = len(self.onGraphs)
         for i in range(totalPlots):
@@ -557,6 +577,8 @@ class View:
                 self.updateTradeVolumePlot(i)
             elif self.onGraphs[i] == "Gini":
                 self.updateGiniPlot(i)
+            elif self.onGraphs[i] == "Number of Infected":
+                self.updateInfectedPlot(i)
             self.figs[i][0].canvas.draw()
             self.figs[i][0].canvas.flush_events()
 
@@ -623,11 +645,12 @@ class View:
                 time_since_last_frame = time_now - last_time
                 framerate = int(round(1.0 / time_since_last_frame, 0))
 
-                # display infos
+                # display info
                 if self.update:
                     print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
                           "; Population = ", len(self.agents), " -  press F12 to pause.")
             self.window.update()
+        exit(0)
 
 
 ''' 

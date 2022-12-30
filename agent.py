@@ -186,6 +186,8 @@ class Agent:
         for entry in self.log:
             print(entry)
 
+    def getNumAfflictedDiseases(self):
+        return self.numAfflictedDiseases
     ''' 
     build common lists
     '''
@@ -677,6 +679,7 @@ class Agent:
             if loc - 1 == 0:
                 del self.diseases[disease]
                 self.sugarMetabolism -= 1
+                self.numAfflictedDiseases -= 1
                 self.addLogEntry("Gained immunity to disease: " + str(disease))
                 continue
             self.diseases[disease] = loc - 1
