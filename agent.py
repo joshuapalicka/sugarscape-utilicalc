@@ -633,3 +633,65 @@ class Agent:
             self.setSpice(max(self.spice + best, 0), "Move")
         self.env.setCapacity((self.x, self.y), 0)
         return killed
+        """
+        Concept: Disease
+
+        Follows agent immune response rule and agent disease transmission rule from pgs. 144-145 of the book "Growing Artificial Societies" by Epstein and Axtell
+
+        The immune response rule is as follows:
+        "If the disease is a substring of the immune system then end (the agent is immune), 
+        else (the agent is infected) go to the following step:
+
+        The substring in the agent immune system having the smallest Hamming distance from the disease is selected and 
+        the first bit at which it is different from the disease string is changed to match the disease."
+
+        The disease transmission rule is as follows:
+        "For each neighbor, a disease that currently afflicts the agent is selected at random and given to the neighbor."
+        """
+
+    def getHammingDistance(self,
+                           disease):  # returns the smallest bitwise distance between a substring of agent immune system and disease
+        diseaseLength = self.env.getDiseaseLength()
+        for i in range(len(self.immuneSystem) - diseaseLength):
+            immuneSystemSubstr = self.immuneSystem[i:i + 5]
+            smallestDist = 0
+            for j in range(len(immuneSystemSubstr)):
+                smallestDist += 1 if immuneSystemSubstr[j] != disease[j] else 0
+            if smallestDist < lowestNumber:
+                bestLoc = i
+                lowestNumber = smallestDist
+        return lowestNumber, bestLoc  # if lowestNumber is 0, agent is immune
+
+    def addDisease(self, disease):
+        smallestDist, bestLoc = self.getHammingDistance(disease)
+        if smallestDist != 0:
+            self.diseases[disease] = bestLoc
+            self.numDiseases += 1
+            self.sugarMetabolism += 1  # TODO: spice? do we need to decrement?
+
+    def updateHelper(self, disease, immuneSubstr):  # updates immuneSubstr to match disease 1 hamming distance better
+        for i in range(len(immuneSubstr)):
+            if immuneSubstr[i] != disease[i]:
+                if immuneSubstr[i] == '0':
+                    immuneSubstr[i] = '1'
+                    return immuneSubstr
+                else:
+                    immuneSubstr[i] = '0'
+                    return immuneSubstr
+
+    def updateImmuneSystem(self):
+        diseaseLength = self.env.getDiseaseLength()
+        for disease, loc in list(self.diseases.items()):
+            currentSubstr = self.immuneSystem[loc:loc + diseaseLength]
+            self.immuneSystem.replace(currentSubstr, self.updateHelper(disease, currentSubstr), 1)
+            if loc - 1 == 0:
+                del self.diseases[disease]
+                self.sugarMetabolism -= 1
+                continue
+            self.diseases[disease] = loc - 1
+
+    def disease(self):  # give random disease to each neighbor
+        self.updateImmuneSystem()
+        if self.numDiseases != 0:
+            for neighbor in self.getNeighbourhood():
+                neighbor.addDisease(random.choice(list(self.diseases.keys())))
