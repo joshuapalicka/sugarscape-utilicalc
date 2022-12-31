@@ -5,6 +5,7 @@ Created on 2010-04-21
 '''
 import math
 import random
+import sys
 from itertools import product
 
 
@@ -42,6 +43,7 @@ class Agent:
         self.setInitialSpiceEndowment(spiceEndowment)
         self.setTags(tags)
         self.immuneSystem = ""
+        self.untrainedImmuneSystem = ""
         self.diseases = {}
         self.numAfflictedDiseases = 0
 
@@ -187,7 +189,13 @@ class Agent:
             print(entry)
 
     def getNumAfflictedDiseases(self):
-        return self.numAfflictedDiseases
+        return len(self.diseases)
+
+    def setUntrainedImmuneSystem(self):
+        self.untrainedImmuneSystem = self.immuneSystem
+
+    def getUntrainedImmuneSystem(self):
+        return self.untrainedImmuneSystem
     ''' 
     build common lists
     '''
@@ -332,6 +340,17 @@ class Agent:
         genitors[0].setSpice(max(genitors[0].spice - 0.5 * genitors[0].spiceEndowment, 0), "Create child")
         genitors[1].setSpice(max(genitors[1].spice - 0.5 * genitors[1].spiceEndowment, 0), "Create child")
 
+        if self.env.getHasDisease():
+            childImmuneSystem = ""
+            genitor0ImmSyst = list(genitors[0].immuneSystem)
+            genitor1ImmSyst = list(genitors[1].immuneSystem)
+            for i in range(len(genitor0ImmSyst)):
+                if genitor0ImmSyst[i] == genitor1ImmSyst[i]:
+                    childImmuneSystem += str(genitor0ImmSyst[i])
+                else:
+                    childImmuneSystem += genitor0ImmSyst[i] if random.randint(0, 1) == 0 else genitor1ImmSyst[i]
+
+
         ageMax = genitors[random.randint(0, 1)].maxAge
         sex = random.randint(0, 1)
         fertility = genitors[random.randint(0, 1)].fertility
@@ -354,6 +373,11 @@ class Agent:
         child = Agent(self.env, x, y, sugarMetabolism, spiceMetabolism, vision, sugarEndowment, spiceEndowment, ageMax,
                       sex, fertility,
                       (childTags, self.tagsLength))
+
+        if self.env.getHasDisease():
+            child.immuneSystem = childImmuneSystem
+            child.untrainedImmuneSystem = childImmuneSystem
+
         self.env.setAgent((x, y), child)
         return child
 
@@ -641,10 +665,10 @@ class Agent:
 
     def getHammingDistance(self, disease):  # returns the smallest bitwise distance between a substring of agent immune system and disease
         diseaseLength = self.env.getDiseaseLength()
-        lowestNumber = 0
+        lowestNumber = sys.maxsize
         bestLoc = 0
         for i in range(len(self.immuneSystem) - diseaseLength):
-            immuneSystemSubstr = self.immuneSystem[i:i + 5]
+            immuneSystemSubstr = self.immuneSystem[i:i + diseaseLength]
             smallestDist = 0
             for j in range(len(immuneSystemSubstr)):
                 smallestDist += 1 if immuneSystemSubstr[j] != disease[j] else 0
@@ -657,38 +681,54 @@ class Agent:
         smallestDist, bestLoc = self.getHammingDistance(disease)
         if smallestDist != 0:
             self.diseases[disease] = bestLoc
-            self.numAfflictedDiseases += 1
             self.sugarMetabolism += 1
             self.addLogEntry("Contracted disease: " + str(disease))
 
     def updateHelper(self, disease, immuneSubstr):  # updates immuneSubstr to match disease 1 hamming distance better
+        immuneSubstr = list(immuneSubstr)
+        disease = list(disease)
         for i in range(len(immuneSubstr)):
             if immuneSubstr[i] != disease[i]:
                 if immuneSubstr[i] == '0':
                     immuneSubstr[i] = '1'
-                    return immuneSubstr
+                    return str(immuneSubstr)
                 else:
                     immuneSubstr[i] = '0'
-                    return immuneSubstr
+                    return str(immuneSubstr)
 
     def updateImmuneSystem(self):
         diseaseLength = self.env.getDiseaseLength()
         for disease, loc in list(self.diseases.items()):
             currentSubstr = self.immuneSystem[loc:loc + diseaseLength]
-            self.immuneSystem.replace(currentSubstr, self.updateHelper(disease, currentSubstr), 1)
-            if loc - 1 == 0:
-                del self.diseases[disease]
-                self.sugarMetabolism -= 1
-                self.numAfflictedDiseases -= 1
-                self.addLogEntry("Gained immunity to disease: " + str(disease))
+
+            if currentSubstr == disease:
+                self.removeDisease(disease)
                 continue
-            self.diseases[disease] = loc - 1
+
+            newSubstr = self.updateHelper(disease, currentSubstr)
+            self.immuneSystem.replace(currentSubstr, newSubstr, 1)
+            hammingDist, loc = self.getHammingDistance(disease)
+            self.diseases[disease] = loc
+
+            if hammingDist == 0:
+                self.removeDisease(disease)
+                continue
+
+    def removeDisease(self, disease):
+        del self.diseases[disease]
+        self.sugarMetabolism -= 1
+        self.addLogEntry("Gained immunity to disease: " + str(disease))
 
     def disease(self):  # give random disease to each neighbor
         self.updateImmuneSystem()
-        if self.numAfflictedDiseases != 0:
+        if len(self.diseases) > 0:
             for neighbor in self.getNeighbourhood():
                 neighbor.addDisease(random.choice(list(self.diseases.keys())))
 
     def addRandomDisease(self):
         self.addDisease(random.choice(self.env.getDiseases()))
+
+    def createImmuneSystem(self):
+        for i in range(self.env.getImmuneSystemSize()):
+            self.immuneSystem += str(random.randint(0, 1))
+        self.setUntrainedImmuneSystem()

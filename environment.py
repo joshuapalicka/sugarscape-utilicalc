@@ -149,8 +149,14 @@ class Environment:
     def setImmuneSystemSize(self, size):
         self.immuneSystemSize = size
 
+    def getImmuneSystemSize(self):
+        return self.immuneSystemSize
+
     def setHasDisease(self, hasDisease):
         self.hasDisease = hasDisease
 
     def getDiseases(self):
         return self.diseases
+
+    def getHasDisease(self):
+        return self.hasDisease

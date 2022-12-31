@@ -23,7 +23,7 @@ initial simulation parameters
 screenSize = 600, 600
 gridSize = 50, 50
 colorBackground = 250, 250, 250
-graphUpdateFrequency = 10  # graphs update every graphUpdateFrequency frames
+graphUpdateFrequency = 5  # graphs update every graphUpdateFrequency frames
 
 # display colors
 colors = {
@@ -58,24 +58,31 @@ growFactor2 = float(growFactor1) / 8
 # agents
 # agentColorScheme: Agents colour meaning = 0:all, 1:bySex, 2:byMetabolism, 3:byVision, 4:byGroup
 maxAgentMetabolism = 5
-maxAgentVision = 5
+maxAgentVision = 8
 initEndowment = 25, 50
 minmaxAgentAge = 60, 100
+
 female = 0
 male = 1
+
 fertility = [(12, 15, 40, 50),
              (12, 15, 50, 60),
              (12, 15, 30, 40),
              (12, 15, 40, 50)]
 childbearing = fertility[0], fertility[1]  # female , male
+
 tagsLength = 5  # must be odd
 tags0 = 0
 tags1 = 2 ** tagsLength - 1
+
 loanRate = 1.05
 loanDuration = 10
+
+# There exists 2^(diseaseLength) unique diseases and 2^immuneSystemSize unique immune systems
 immuneSystemSize = 10  # number of bits per immune system
-diseaseLength = 5  # number of bits per disease
+diseaseLength = 4  # number of bits per disease
 numDiseases = 5
+numStartingDiseases = 3
 
 # Active settings
 agentColorScheme = 4
@@ -187,7 +194,7 @@ class View:
         self.season = ""
         # init agents population
         self.agents = agents
-        self.population = [len(self.agents)]
+        self.population = []
 
         self.metabolismMean = []
         self.visionMean = []
@@ -195,6 +202,7 @@ class View:
         self.tradeVolumeMean = []
         self.gini = []
         self.numInfectedAgents = []
+        self.proportionInfectedAgents = []
 
         # init time
         self.iteration = 0
@@ -309,7 +317,7 @@ class View:
                         self.agents.append(next(mateItr))
                     except StopIteration:
                         break
-                        
+
             if rules["disease"]:
                 agent.disease()
 
@@ -369,6 +377,7 @@ class View:
             for agent in self.agents:
                 numInfected += 1 if agent.getNumAfflictedDiseases() > 0 else 0
             self.numInfectedAgents.append(numInfected)
+            self.proportionInfectedAgents.append((numInfected / numAgents) if numAgents > 0 else 0)
 
         # run environment's rules
         if rules["seasons"]:
@@ -520,11 +529,10 @@ class View:
     def updateInfectedPlot(self, ax_idx):
         fig, ax = self.figs[ax_idx]
         ax.clear()
-        # create figure
-        ax.plot(range(len(self.numInfectedAgents)), self.numInfectedAgents)
-        ax.set_title("Infected Agents time series")
+        ax.plot(range(len(self.proportionInfectedAgents)), self.proportionInfectedAgents)
+        ax.set_title("Proportion of Infected Agents to Healthy Agents time series")
         ax.set_xlabel("Iteration")
-        ax.set_ylabel("Number of Infected Agents")
+        ax.set_ylabel("Proportion of Infected Agents")
         self.figs[ax_idx] = (fig, ax)
 
     def populateOptions(self):  # TODO: Add more graphs and options
@@ -540,7 +548,7 @@ class View:
             self.options.append("Gini")
 
         if rules["disease"]:
-            self.options.append("Number of Infected")
+            self.options.append("Proportion Infected")
 
         self.offGraphs = self.options.copy()
         self.onGraphs = []
@@ -561,7 +569,7 @@ class View:
             fig, ax = plt.subplots()
             self.figs.append((fig, ax))
 
-    def updateGraphs(self): # once match case becomes more standard, this can be rewritten to make more pythonic
+    def updateGraphs(self):  # once match case becomes more standard, this can be rewritten to make more pythonic
         self.checkAddFig()
         totalPlots = len(self.onGraphs)
         for i in range(totalPlots):
@@ -577,7 +585,7 @@ class View:
                 self.updateTradeVolumePlot(i)
             elif self.onGraphs[i] == "Gini":
                 self.updateGiniPlot(i)
-            elif self.onGraphs[i] == "Number of Infected":
+            elif self.onGraphs[i] == "Proportion Infected":
                 self.updateInfectedPlot(i)
             self.figs[i][0].canvas.draw()
             self.figs[i][0].canvas.flush_events()
@@ -588,7 +596,7 @@ class View:
                 plt.close(fig[0])
 
     # the main game loop
-    def createWindow(self):
+    def createWindow(self):  # TODO: if graph window closed, crash occurs
         self.update = True
         plt.ion()
         self.figs = []
@@ -688,12 +696,14 @@ if __name__ == '__main__':
     # create a list of agents and place them in env
     agents = []
     for (numAgents, tags, distribution) in distributions:
-        for i in range(numAgents):
+        for _ in range(numAgents):
             agent = Agent(env)
             if initAgent(agent, tags, distribution):
                 env.setAgent(agent.getLocation(), agent)
                 if rules["disease"]:
-                    agent.addRandomDisease()
+                    agent.createImmuneSystem()
+                    for _ in range(numStartingDiseases):
+                        agent.addRandomDisease()
                 agents.append(agent)
 
     # Create a view with an env and a list of agents in env
