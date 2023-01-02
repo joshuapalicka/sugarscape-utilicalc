@@ -253,6 +253,22 @@ class View:
 
     # replace or remove agent
     def removeAgent(self, agent):
+        if rules["inheritance"]:
+            children = list(agent.getChildren())
+            numChildren = len(children)
+            if numChildren > 0:
+                # inherit sugar and spice
+                sugar = agent.getSugar()
+                spice = agent.getSpice()
+                for child in children:
+                    child.setSugar(child.getSugar() + (sugar / numChildren), "inheritance")
+                    if rules["spice"]:
+                        child.setSpice(child.getSpice() + (spice / numChildren), "inheritance")
+                if rules["credit"]:
+                    agent.splitLoansAmongChildren(children)
+
+        agent.setAlive(False)
+
         if rules["replacement"]:
             # replace with agent of same tribe
             tags = agent.getTags()
@@ -307,6 +323,9 @@ class View:
                 if killed:
                     # do not free the environment, someone else is already here
                     self.removeAgent(killed)
+
+            if rules["credit"]:
+                agent.credit()
 
             # PROCREATE
             if rules["procreate"] and agent.isFertile():
@@ -693,6 +712,10 @@ if __name__ == '__main__':
         for i in range(numDiseases):
             env.generateDisease()
 
+    if rules["credit"]:
+        env.setLoanRate(loanRate)
+        env.setLoanDuration(loanDuration)
+
     # create a list of agents and place them in env
     agents = []
     for (numAgents, tags, distribution) in distributions:
@@ -700,11 +723,13 @@ if __name__ == '__main__':
             agent = Agent(env)
             if initAgent(agent, tags, distribution):
                 env.setAgent(agent.getLocation(), agent)
+
                 if rules["disease"]:
                     agent.createImmuneSystem()
                     for _ in range(numStartingDiseases):
                         agent.addRandomDisease()
                 agents.append(agent)
+
 
     # Create a view with an env and a list of agents in env
     view = View(screenSize, env, agents)

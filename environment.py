@@ -27,6 +27,9 @@ class Environment:
         self.hasTags = False
         self.diseases = []
         self.time = 0
+        self.idIncrement = 0
+        self.loanDuration = 0
+        self.loanRate = 0
 
     def getHasSpice(self):
         return self.hasSpice
@@ -44,11 +47,11 @@ class Environment:
 
     def getSugarCapacity(self, location):
         (i, j) = location
-        return self.grid[i][j][0]
+        return int(self.grid[i][j][0])
 
     def getSpiceCapacity(self, location):
         (i, j) = location
-        return self.grid[i][j][1]
+        return int(self.grid[i][j][1])
 
     def decCapacity(self, location, value):
         (i, j) = location
@@ -133,6 +136,29 @@ class Environment:
 
     def getTime(self):
         return self.time
+
+    def getLoanDuration(self):
+        return self.loanDuration
+
+    def getLoanRate(self):
+        return self.loanRate
+
+    def setLoanDuration(self, duration):
+        self.loanDuration = duration
+
+    def setLoanRate(self, rate):
+        self.loanRate = rate
+
+    def getNewId(self):
+        self.idIncrement += 1
+        return self.idIncrement
+
+    def findAgentById(self, id):
+        for i, j in product(range(self.gridWidth), range(self.gridHeight)):
+            agent = self.grid[i][j][4]
+            if agent is not None and agent.getId() == id:
+                return agent
+        return None
 
     def generateDisease(self):
         disease = ""

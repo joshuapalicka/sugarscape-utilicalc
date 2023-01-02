@@ -8,6 +8,91 @@ import random
 import sys
 from itertools import product
 
+"""
+  Creates a loan from other agent to self
+"""
+
+
+def createNewLoan(lender, borrower, sugar, spice, time=None, transfer=True):
+    if time is None:
+        time = borrower.env.getLoanDuration()
+    hasSpice = borrower.env.getHasSpice()
+    lender.lent.append((lender, borrower, sugar, spice, time))
+
+    if transfer:
+        lender.setSugar(lender.sugar - sugar, "loan")
+        if hasSpice:
+            lender.setSpice(lender.spice - spice, "loan")
+
+    logEntry = "Created loan of " + str(sugar) + " sugar and " + str(spice) + " spice from " + str(
+        lender.getId()) + " to " + str(borrower.getId())
+
+    lender.addLogEntry(logEntry)
+    rate = lender.env.getLoanRate()
+    borrower.borrowed.append((borrower, lender, sugar * rate, spice * rate, time))
+
+    if transfer:
+        borrower.setSugar(borrower.sugar + sugar, "loan")
+        if hasSpice:
+            borrower.setSpice(borrower.spice + spice, "loan")
+
+    borrower.addLogEntry(logEntry)
+
+
+"""
+    This function is called by an agent to trade with another agent. 
+"""
+
+
+def tradeHelper(A, B, p, A_welfare, B_welfare):
+    # in this function, A is always the higher MRS agent so spice flows from A to B and sugar flows from B to A
+    if p == 1:
+        return False
+
+    if p > 1:
+        B_potential_sugar = B.getSugar() - 1
+        A_potential_sugar = A.getSugar() + 1
+
+        A_potential_spice = A.getSpice() - p
+        B_potential_spice = B.getSpice() + p
+
+    elif p < 1:
+        B_potential_sugar = B.getSugar() - 1 / p
+        A_potential_sugar = A.getSugar() + 1 / p
+
+        A_potential_spice = A.getSpice() - 1
+        B_potential_spice = B.getSpice() + 1
+
+    new_A_mrs = A.getMRS(A_potential_sugar, A_potential_spice)
+    new_B_mrs = B.getMRS(B_potential_sugar, B_potential_spice)
+
+    new_A_welfare = A.getWelfare(A_potential_sugar, A_potential_spice)
+    new_B_welfare = B.getWelfare(B_potential_sugar, B_potential_spice)
+
+    if new_A_welfare > A_welfare and new_B_welfare > B_welfare:
+        if new_A_mrs > new_B_mrs:
+            A_prev_sugar = A.getSugar()
+            A_prev_spice = A.getSpice()
+            B_prev_sugar = B.getSugar()
+            B_prev_spice = B.getSpice()
+
+            A.setSugar(A_potential_sugar, "Trade")
+            B.setSugar(B_potential_sugar, "Trade")
+            A.setSpice(A_potential_spice, "Trade")
+            B.setSpice(B_potential_spice, "Trade")
+
+            A_trade_str = "I traded with Agent " + str(B.getLocation()) + " A started with " + str(
+                A_prev_sugar) + " sugar and " + str(A_prev_spice) + " spice. They ended with " + str(
+                A.getSugar()) + " sugar and " + str(A.getSpice()) + " spice. Cost was: " + str(p)
+            B_trade_str = "I traded with Agent " + str(A.getLocation()) + " B started with " + str(
+                B_prev_sugar) + " sugar and " + str(B_prev_spice) + " spice. They ended with " + str(
+                B.getSugar()) + " sugar and " + str(B.getSpice()) + " spice. Cost was: " + str(p)
+
+            A.addTrade(A_trade_str)
+            B.addTrade(B_trade_str)
+
+            return True
+    return False
 
 class Agent:
     '''
@@ -22,6 +107,7 @@ class Agent:
         Constructor
         '''
         self.env = env
+        self.id = self.env.getNewId()
         self.x = x
         self.y = y
         self.sugar = 0
@@ -38,14 +124,20 @@ class Agent:
         self.tradeLog = []
         self.sugarLog = []
         self.spiceLog = []
+        self.loanLog = []
         self.log = []
+        self.lent = []  # list of tuples (lender, borrower, sugar, spice, time)
+        self.borrowed = []  # list of tuples (borrower, lender, sugar, spice, time)
         self.setInitialSugarEndowment(sugarEndowment)
         self.setInitialSpiceEndowment(spiceEndowment)
+        self.previousWealth = 0
         self.setTags(tags)
         self.immuneSystem = ""
         self.untrainedImmuneSystem = ""
         self.diseases = {}
         self.numAfflictedDiseases = 0
+        self.childIds = []
+        self.alive = True
 
 
     ''' 
@@ -196,6 +288,33 @@ class Agent:
 
     def getUntrainedImmuneSystem(self):
         return self.untrainedImmuneSystem
+
+    def getWealth(self):
+        return self.sugar if not self.env.getHasSpice else self.sugar + self.spice
+
+    def getId(self):
+        return self.id
+
+    def isAlive(self):
+        return self.alive
+
+    def setAlive(self, alive):
+        self.alive = alive
+
+    def addChildId(self, childId):
+        self.childIds.append(childId)
+
+    def getChildren(self):
+        children = []
+        for childId in self.childIds:
+            child = self.env.findAgentById(childId)
+            if child is not None:
+                children.append(child)
+        return children
+
+    def getRandomImmuneSystem(self):
+        for i in range(self.env.getImmuneSystemLength()):
+            self.immuneSystem.append(random.randint(0, 1))  # TODO: test to see if this uses the same random seed
     ''' 
     build common lists
     '''
@@ -243,7 +362,169 @@ class Agent:
     rules
     '''
 
-    # TRANSMIT
+    """
+    Concept: Credit
+
+    Follows Agent credit rule L_dr from Growing Artificial Societies by Epstein and Axtell, Pgs. 131 & 133
+
+    "An agent is a potential lender if it is too old to have children, in which case the maximum amount it may lend is 
+    one-half of its current wealth;
+
+    an agent is a potential lender if it is of childbearing age and has wealth in excess of the amount necessary to have 
+    children, in which case the maximum amount it may lend is the excess wealth
+
+    an agent is a potential borrower if it is of childbearing age and has insufficient wealth to have a child and has 
+    income (resources gathered, minus metabolism, minus other loan obligations) in the present period making it credit-worthy 
+    for a loan written at terms specified by the lender
+
+    If a potential borrower and a potential lender are neighbors then a loan is originated with a duration of d years at 
+    the rate of r percent and the face value of the loan amount is transferred from the lender to the borrower
+
+    At the time of the loan due date, if the borrower has sufficient wealth to repay the lan then a transfer from the 
+    borrower to the lender is made; else the borrower is required to pay back half of its wealth and a new loan is 
+    originated for the remaining sum
+
+    If the borrower on an active loan dies before the due date then the lender simply takes a loss
+
+    if the lender on an active loan dies before the due date then the borrower is not required to pay back the loan, 
+    unless inheritance rule I is active, in which case the lender's children now become the borrower's creditors"
+
+    Here, I will only check if each agent can borrow from all others around them, and because everyone gets a turn to 
+    move,this will be a fair system.
+    """
+
+    def credit(self):
+        sugarObligations, spiceObligations = self.checkLoans()
+        canBorrow = self.isPotentialBorrower(sugarObligations, spiceObligations)
+        if not canBorrow:
+            return
+
+        neighbours = self.getNeighbourhood()
+        for neighbour in neighbours:
+            maxLendSugar, maxLendSpice = neighbour.getPotentialLendAmt()
+            sugarNeeded, spiceNeeded = self.amountToReproduce()
+
+            if maxLendSugar >= sugarNeeded and not maxLendSpice >= spiceNeeded:
+                createNewLoan(neighbour, self, sugarNeeded, 0)
+            elif maxLendSpice >= spiceNeeded and not maxLendSugar >= sugarNeeded:
+                createNewLoan(neighbour, self, 0, spiceNeeded)
+            elif maxLendSugar >= sugarNeeded and maxLendSpice >= spiceNeeded:
+                createNewLoan(neighbour, self, sugarNeeded, spiceNeeded)
+
+    def getPotentialLendAmt(self):
+        if self.age > self.fertility[1]:
+            return .5 * self.sugar, .5 * self.spice
+
+        if self.age > self.fertility[0]:
+            excessSugar = max(0, self.sugar - self.sugarCostForMating)
+            if self.env.getHasSpice():
+                excessSpice = max(0, self.spice - self.spiceCostForMating)
+                return excessSugar, excessSpice
+            else:
+                return excessSugar, 0
+        return 0, 0
+
+    def checkLoans(self):
+        for loan in self.lent:
+            loan = (loan[0], loan[1], loan[2], loan[3], loan[4] - 1)
+            if loan[4] <= 0:
+                self.lent.remove(loan)
+
+        sugarObligations, spiceObligations = 0, 0
+
+        for loan in self.borrowed:
+            borrower = loan[0]
+            lender = loan[1]
+            sugarOwed = loan[2]
+            spiceOwed = loan[3]
+            loan = (loan[0], loan[1], loan[2], loan[3], loan[4] - 1)
+
+            if loan[4] == 0:
+                self.borrowed.remove(loan)
+                if not lender.isAlive():
+                    continue
+                cantPay = False
+                mysugar, myspice = self.getSugar(), self.getSpice()
+                if self.getSugar() - sugarOwed < 0:
+                    cantPay = True
+                    self.addLogEntry("Agent in debt!")
+                    lender.setSugar(lender.getSugar() + mysugar * .5, "repayment, agent in debt")
+                    self.setSugar(mysugar * .5, "debt")
+                    sugarObligations += mysugar * .5
+                    sugarOwed -= mysugar * .5
+
+                if self.env.getHasSpice() and self.getSpice() - spiceOwed < 0:
+                    cantPay = True
+                    self.addLogEntry("Agent in debt!")
+                    lender.setSugar(lender.getSpice() + self.getSpice() * .5, "repayment, agent in debt")
+                    self.setSugar(self.getSpice() * .5, "debt")
+                    spiceObligations += myspice * .5
+                    spiceOwed -= myspice * .5
+
+                if cantPay:
+                    createNewLoan(lender, self, sugarOwed, spiceOwed, time=self.env.getLoanDuration(), transfer=False)
+
+                else:
+                    self.addLogEntry("Agent repaid loan")
+                    lender.setSugar(lender.getSugar() + sugarOwed, "repayment")
+                    self.setSugar(self.getSugar() - sugarOwed, "repayment")
+                    if self.env.getHasSpice():
+                        lender.setSpice(lender.getSpice() + spiceOwed, "repayment")
+                        self.setSpice(self.getSpice() - spiceOwed, "repayment")
+        return sugarObligations, spiceObligations
+
+    # True if agent has income (resources gathered - metabolism - other loans) in current period
+    def hasIncome(self, sugarObligations, spiceObligations):
+        gathered = self.getWealth() - self.previousWealth
+        if self.env.getHasSpice():
+            return gathered - self.sugarMetabolism - self.spiceMetabolism - spiceObligations > 0
+        else:
+            return gathered - self.sugarMetabolism - sugarObligations > 0
+
+    def amountToReproduce(self):
+        sugarNeeded = max(0, self.sugarCostForMating - self.sugar)
+        if self.env.getHasSpice():
+            spiceNeeded = max(0, self.spiceCostForMating - self.spice)
+            return sugarNeeded, spiceNeeded
+        else:
+            return sugarNeeded, 0
+
+    def isPotentialBorrower(self, sugarObligations, spiceObligations):
+        if self.fertility[0] <= self.age <= self.fertility[1]:  # fertile
+            if self.env.getHasSpice():  # has spice
+                if self.sugar < self.sugarCostForMating or self.spice < self.spiceCostForMating:  # not enough resources
+                    return self.hasIncome(sugarObligations, spiceObligations)  # has income in current period
+            else:  # no spice
+                if self.sugar < self.sugarCostForMating:
+                    return self.hasIncome(sugarObligations, spiceObligations)  # has income in current period
+        return False
+
+    # if inheritance rule I is active, the lender's children now become the borrower's creditors
+    def splitLoansAmongChildren(self, children):
+        for loan in self.lent:
+            borrower = loan[0]
+            sugar = loan[2]
+            spice = loan[3]
+            timeRemaining = loan[4]
+            numRecipients = len(children)
+            sugar_per_recipient = sugar / numRecipients
+            spice_per_recipient = spice / numRecipients
+            if borrower in children:
+                children.remove(borrower)
+            for child in children:
+                createNewLoan(child, loan[0], sugar_per_recipient, spice_per_recipient, time=timeRemaining,
+                              transfer=False)  # lender, borrower, sugar, spice, time, transfer
+
+    """
+    Concept: Cultural Transmission
+
+    Follows Agent cultural transmission (tag-flipping) rule from Growing Artificial Societies by Epstein and Axtell, Pg 73
+
+    "For each neighbor, a tag is randomly selected
+
+    If the neighbor agrees with the agent at that tag position, no change is madel if they disagree, the neighbor's 
+    tag is flipped to agree with the agent's tag"
+    """
     def transmit(self):
         self.env.hasTags = True
         # build a list of possible neighbours for in neighbourhood
@@ -260,33 +541,27 @@ class Agent:
                 neighbour.setTags((neighbourTags, self.tagsLength))
                 self.addLogEntry("transmit: " + str(neighbourTags) + " (" + str(mask) + ")")
 
-    # AGEING
-    # If age > maxAge Then the agent is dead (return False)
+    """
+    Concept: Aging
+
+    If age > maxAge Then the agent is dead (return False)
+    """
     def incAge(self):
         self.age += 1
         self.addLogEntry("age: " + str(self.age))
         return max(self.maxAge - self.age, 0)
 
-    # FERTILITY
-    # First, to have offspring, agents must be of childbearing age.
-    # Second, children born with literally no initial endowment of sugar would instantly die.
-    # We therefore require that parents give their children some initial endowment.
-    # Each newborn's endowment is the sum of the (usually unequal) contributions of mother and father.
-    # Dad contributes an amount equal to one half of whatever his initial endowment had been, and likewise for mom.
-    # To be parents, agents must have amassed at least the amount of sugar which they were endowed at birth.
-    def isFertile(self):
-        if self.fertility[0] <= self.age <= self.fertility[1]:
-            if self.sugar >= self.spiceCostForMating and not self.env.getHasSpice():
-                return True
-            elif self.sugar >= self.sugarCostForMating and self.env.getHasSpice():
-                if self.spice >= self.spiceCostForMating:
-                    return True
-        return False
+    """
+    Concept: Sex
 
-    # MATE (Generator):
-    # Select a neighboring agent at random.
-    # If the neighbor is fertile and of the opposite sex and at least one of the agent has an empty neighboring site, then a child is born
-    # Repeat for all neighbors.
+    Follows Agent sex rule S from Growing Artificial Societies by Epstein and Axtell, Pg 56
+
+    "Select a neighboring agent at random.
+
+    If the neighbor is fertile and of the opposite sex and at least one of the agent has an empty neighboring site, then a child is born
+
+    Repeat for all neighbors.
+    """
     def mate(self):
         # build a list of possible partners in neighbourhood
         neighbourhood = self.getNeighbourhood()
@@ -379,48 +654,67 @@ class Agent:
             child.untrainedImmuneSystem = childImmuneSystem
 
         self.env.setAgent((x, y), child)
+
+        childId = child.getId()
+        # create child agent
+        self.addLogEntry(str("create child: " + str(childId)))
+        parent.addLogEntry(str("create child: " + str(childId)))
+        self.addChildId(childId)
+        parent.addChildId(childId)
         return child
 
-    def getWelfare(self, w1=None, w2=None, x=None, y=None):
-        # agent welfare function to determine if we need to find spice or sugar and also used in trading
-        # this formula is based on page 97 of the book "Growing Artificial Societies" by Epstein and Axtellf
-        m1 = self.sugarMetabolism
-        m2 = self.spiceMetabolism
 
-        if not w1 and not w2:
-            w1 = self.sugar
-            w2 = self.spice
+    """
+    Concept: Fertility
 
-        if x and y:
-            x1 = self.env.getSugarCapacity((x, y))
-            x2 = self.env.getSpiceCapacity((x, y))
+    Follows fertility definition from Growing Artificial Societies by Epstein and Axtell, Pg 55
 
-            w1 = self.sugar + x1
-            w2 = self.spice + x2
+    "First, to have offspring, agents must be of childbearing age.
+    Second, children born with literally no initial endowment of sugar would instantly die.
+    We therefore require that parents give their children some initial endowment.
+    Each newborn's endowment is the sum of the (usually unequal) contributions of mother and father.
+    Dad contributes an amount equal to one half of whatever his initial endowment had been, and likewise for mom.
+    To be parents, agents must have amassed at least the amount of sugar which they were endowed at birth."
+    """
+    def isFertile(self):
+        if self.fertility[0] <= self.age <= self.fertility[1]:
+            if self.sugar >= self.spiceCostForMating and not self.env.getHasSpice():
+                return True
+            elif self.sugar >= self.sugarCostForMating and self.env.getHasSpice():
+                if self.spice >= self.spiceCostForMating:
+                    return True
+        return False
 
-        mt = m1 + m2
+    """
+    Concept: Movement
 
-        if self.env.getHasTags():
-            # follows from page 125 of the book "Growing Artificial Societies" by Epstein and Axtell
-            tags = self.getTags()
-            f = float(bin(tags).count('1')) / float(self.tagsLength)
-            u = m1 * f + m2 * (1 - f)
-            return w1 ** ((m1 / u) * f) * w2 ** ((m2 / u) * (1 - f)) if w1 > 0 and w2 > 0 else 0
+    Follows Agent movement rule M from Growing Artificial Societies by Epstein and Axtell, Pg 25
 
-        return w1 ** (m1 / mt) * w2 ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
+    "Look out as far as vision permits in the four principal lattice directions and identify the unoccupied site(s) having the most sugar.
 
-    def getManhattanDistance(self, x, y):
-        return abs(self.x - x) + abs(self.y - y)
+    If the greatest sugar value appears on multiple sites then select the nearest one.
 
-    # MOVE:
-    # Look out as far as vision permits in the four principal lattice directions and identify the unoccupied site(s) having the most sugar.
-    # If the greatest sugar value appears on multiple sites then select the nearest one.
-    # Move to this site.
-    # Collect all the sugar at this new position.
-    # Increment the agent's accumulated sugar wealth by the sugar collected and decrement by the agent's metabolic rate.
+    Move to this site.
+
+    Collect all the sugar at this new position.
+
+    Increment the agent's accumulated sugar wealth by the sugar collected and decrement by the agent's metabolic rate."
+
+    Also can follow multicommodity agent movement rule M from Growing Artificial Societies by Epstein and Axtell, Pg 98
+
+    "Look out as far as vision permits in each of the four lattice directions, north, south, east, and west
+
+    Considering only unoccupied lattice positions, find the nearest position producing maximum welfare
+
+    Move to the new position
+
+    Collect all the resources at that location
+    """
 
     def move(self):
         # find best food location
+        self.previousWealth = self.getWealth()
+
         move = False
         newx = self.x
         newy = self.y
@@ -483,69 +777,27 @@ class Agent:
         self.env.setSugarCapacity((self.x, self.y), 0)
         self.env.setSpiceCapacity((self.x, self.y), 0)
 
-    # MRS means Marginal Rate of Substitution
-    def getMRS(self, w1=None, w2=None):
-        m1 = self.sugarMetabolism
-        m2 = self.spiceMetabolism
+    def getManhattanDistance(self, x, y):
+        return abs(self.x - x) + abs(self.y - y)
 
-        if not w1 and not w2:
-            w1 = self.sugar
-            w2 = self.spice
+    """
+    Concept: Trade
 
-        t1 = w1 / m1
-        t2 = w2 / m2
+    Follows Agent trade rule T from Growing Artificial Societies by Epstein and Axtell, Pg. 105
 
-        return t2 / t1 if t1 != 0 else 0
+    "Agent and neighbor compute their MRSs; if these are equal then end, else continue
 
-    def tradeHelper(self, A, B, p, A_welfare, B_welfare):
-        # in this function, A is always the higher MRS agent so spice flows from A to B and sugar flows from B to A
-        if p == 1:
-            return False
+    the direction of exchange is as follows: spice follows from the agent with the higher MRS to the agent with the 
+    lower MRS while sugar goes in the opposite direction
 
-        if p > 1:
-            B_potential_sugar = B.getSugar() - 1
-            A_potential_sugar = A.getSugar() + 1
+    the geometric mean of the two MRSs is calculated--this will serve as the price, p;
 
-            A_potential_spice = A.getSpice() - p
-            B_potential_spice = B.getSpice() + p
+    the quantities to be exchanged are as follows: if p > 1 then p units of spice for 1 unit of sugar; if p < 1 then
+    1/p units of sugar for 1 unit of spice
 
-        elif p < 1:
-            B_potential_sugar = B.getSugar() - 1 / p
-            A_potential_sugar = A.getSugar() + 1 / p
-
-            A_potential_spice = A.getSpice() - 1
-            B_potential_spice = B.getSpice() + 1
-
-        new_A_mrs = A.getMRS(A_potential_sugar, A_potential_spice)
-        new_B_mrs = B.getMRS(B_potential_sugar, B_potential_spice)
-
-        new_A_welfare = A.getWelfare(A_potential_sugar, A_potential_spice)
-        new_B_welfare = B.getWelfare(B_potential_sugar, B_potential_spice)
-
-        if new_A_welfare > A_welfare and new_B_welfare > B_welfare:
-            if new_A_mrs > new_B_mrs:
-                A_prev_sugar = A.getSugar()
-                A_prev_spice = A.getSpice()
-                B_prev_sugar = B.getSugar()
-                B_prev_spice = B.getSpice()
-
-                A.setSugar(A_potential_sugar, "Trade")
-                B.setSugar(B_potential_sugar, "Trade")
-                A.setSpice(A_potential_spice, "Trade")
-                B.setSpice(B_potential_spice, "Trade")
-
-                A_trade_str = "I traded with Agent " + str(B.getLocation()) + " A started with " + str(
-                    A_prev_sugar) + " sugar and " + str(A_prev_spice) + " spice. They ended with " + str(
-                    A.getSugar()) + " sugar and " + str(A.getSpice()) + " spice. Cost was: " + str(p)
-                B_trade_str = "I traded with Agent " + str(A.getLocation()) + " B started with " + str(
-                    B_prev_sugar) + " sugar and " + str(B_prev_spice) + " spice. They ended with " + str(
-                    B.getSugar()) + " sugar and " + str(B.getSpice()) + " spice. Cost was: " + str(p)
-
-                A.addTrade(A_trade_str)
-                B.addTrade(B_trade_str)
-
-                return True
-        return False
+    if this trade will make both agents better off (increases the welfare of both agents), and not cause the agents 
+    MRSs to cross over one another, then the trade is made and return to start, else end"
+    """
 
     def trade(self):
         # Formula starts on page 102 of the book "Growing Artificial Societies" by Epstein and Axtell
@@ -567,10 +819,10 @@ class Agent:
                     p = math.sqrt(trader_1_mrs * trader_2_mrs)
 
                     if trader_1_mrs > trader_2_mrs:
-                        has_traded = self.tradeHelper(trader_1, trader_2, p, trader_1_welfare, trader_2_welfare)
+                        has_traded = tradeHelper(trader_1, trader_2, p, trader_1_welfare, trader_2_welfare)
 
                     elif trader_1_mrs < trader_2_mrs:
-                        has_traded = self.tradeHelper(trader_2, trader_1, p, trader_2_welfare, trader_1_welfare)
+                        has_traded = tradeHelper(trader_2, trader_1, p, trader_2_welfare, trader_1_welfare)
 
                     else:
                         has_traded = False
@@ -579,8 +831,79 @@ class Agent:
                         trades.append(p)
         return trades
 
-    # TODO: Implement spice with combat?
-    # COMBAT
+    # MRS means Marginal Rate of Substitution
+    def getMRS(self, w1=None, w2=None):
+        m1 = self.sugarMetabolism
+        m2 = self.spiceMetabolism
+
+        if not w1 and not w2:
+            w1 = self.sugar
+            w2 = self.spice
+
+        t1 = w1 / m1
+        t2 = w2 / m2
+
+        return t2 / t1 if t1 != 0 else 0
+
+    """
+    Concept: Welfare
+
+    Follows Agent welfare function from Growing Artificial Societies by Epstein and Axtell, Pg 97
+
+    "One way to compute this (relative need of sugar or spice) is to have the agents compute how "close" they are to starving 
+    to death due to a lack of either sugar or spice. They then attempt to gather relatively more of the good whose absence 
+    most jeopardizes their survival"
+
+    This is extended further to be a useful function in computing trade and best location to move to.
+    """
+
+    def getWelfare(self, w1=None, w2=None, x=None, y=None):
+        m1 = self.sugarMetabolism
+        m2 = self.spiceMetabolism
+
+        if not w1 and not w2:
+            w1 = self.sugar
+            w2 = self.spice
+
+        if x and y:
+            x1 = self.env.getSugarCapacity((x, y))
+            x2 = self.env.getSpiceCapacity((x, y))
+
+            w1 = self.sugar + x1
+            w2 = self.spice + x2
+
+        mt = m1 + m2
+
+        if self.env.getHasTags():
+            # follows from page 125 of the book "Growing Artificial Societies" by Epstein and Axtell
+            tags = self.getTags()
+            f = float(bin(tags).count('1')) / float(self.tagsLength)
+            u = m1 * f + m2 * (1 - f)
+            return w1 ** ((m1 / u) * f) * w2 ** ((m2 / u) * (1 - f)) if w1 > 0 and w2 > 0 else 0
+
+        return w1 ** (m1 / mt) * w2 ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
+    """
+    Concept: Combat
+    
+    Follows Agent combat rule C_a from Growing Artificial Societies by Epstein and Axtell, Pg. 83
+
+    "Look out as far as vision permits in the four principal lattice directions
+
+    Throw out all sites occupied by members of the agent's own tribe
+
+    Throw out all sites occupied by members of different tribes who are wealthier than the agent
+
+    The reward of each remaining site is given by the resource level at the site plus, if it is occupied, the minimum of 
+    a and the occupant's wealth
+
+    Throw out all sites that are vulnerable to retaliation
+
+    Select the nearest position having maximum reward and go there
+
+    Gather the resources at the site plus the minimum of a and the occupant's wealth, if the site was occupied
+
+    If the site was occupuied, then the former occupant is considered "killed" -- permanently removed from play"
+    """
     def combat(self, alpha):
         hasSpice = self.env.getHasSpice()
 
@@ -638,7 +961,7 @@ class Agent:
             self.y = newy
 
         if killed is not None:
-            self.addLogEntry("I killed Agent at" + str(killed.getLocation()))
+            self.addLogEntry("I killed Agent" + str(killed.getId) + "at" + str(killed.getLocation()))
 
         # collect, eat and consume
         self.setSugar(max(self.sugar + best, 0), "Move")
