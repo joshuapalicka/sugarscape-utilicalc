@@ -39,11 +39,6 @@ def createNewLoan(lender, borrower, sugar, spice, time=None, transfer=True):
     borrower.addLogEntry(logEntry)
 
 
-"""
-    This function is called by an agent to trade with another agent. 
-"""
-
-
 def tradeHelper(A, B, p, A_welfare, B_welfare):
     # in this function, A is always the higher MRS agent so spice flows from A to B and sugar flows from B to A
     if p == 1:
@@ -94,6 +89,20 @@ def tradeHelper(A, B, p, A_welfare, B_welfare):
             return True
     return False
 
+
+def updateHelper(disease, immuneSubstr):  # updates immuneSubstr to match disease 1 hamming distance better
+    immuneSubstr = list(immuneSubstr)
+    disease = list(disease)
+    for i in range(len(immuneSubstr)):
+        if immuneSubstr[i] != disease[i]:
+            if immuneSubstr[i] == '0':
+                immuneSubstr[i] = '1'
+                return str(immuneSubstr)
+            else:
+                immuneSubstr[i] = '0'
+                return str(immuneSubstr)
+
+
 class Agent:
     '''
     classdocs
@@ -106,6 +115,10 @@ class Agent:
         '''
         Constructor
         '''
+
+        self.tribe = None
+        self.tagsLength = None
+        self.tags = None
         self.env = env
         self.id = self.env.getNewId()
         self.x = x
@@ -119,8 +132,12 @@ class Agent:
         self.age = 0
         self.sex = sex
         self.fertility = fertility
-        self.sugarCostForMatingRange = 0, 0  # 10,40
-        self.spiceCostForMatingRange = 0, 0
+        self.sugarCostForMatingRange = 0, 0  # 10, 40
+        self.spiceCostForMatingRange = 0, 0  # 10, 40
+        self.sugarEndowment = None
+        self.sugarCostForMating = None
+        self.spiceEndowment = None
+        self.spiceCostForMating = None
         self.tradeLog = []
         self.sugarLog = []
         self.spiceLog = []
@@ -138,7 +155,6 @@ class Agent:
         self.numAfflictedDiseases = 0
         self.childIds = []
         self.alive = True
-
 
     ''' 
     get / set section 
@@ -314,7 +330,8 @@ class Agent:
 
     def getRandomImmuneSystem(self):
         for i in range(self.env.getImmuneSystemLength()):
-            self.immuneSystem.append(random.randint(0, 1))  # TODO: test to see if this uses the same random seed
+            self.immuneSystem += str(random.randint(0, 1))  # TODO: test to see if this uses the same random seed
+
     ''' 
     build common lists
     '''
@@ -525,6 +542,7 @@ class Agent:
     If the neighbor agrees with the agent at that tag position, no change is madel if they disagree, the neighbor's 
     tag is flipped to agree with the agent's tag"
     """
+
     def transmit(self):
         self.env.hasTags = True
         # build a list of possible neighbours for in neighbourhood
@@ -546,6 +564,7 @@ class Agent:
 
     If age > maxAge Then the agent is dead (return False)
     """
+
     def incAge(self):
         self.age += 1
         self.addLogEntry("age: " + str(self.age))
@@ -562,6 +581,7 @@ class Agent:
 
     Repeat for all neighbors.
     """
+
     def mate(self):
         # build a list of possible partners in neighbourhood
         neighbourhood = self.getNeighbourhood()
@@ -625,7 +645,6 @@ class Agent:
                 else:
                     childImmuneSystem += genitor0ImmSyst[i] if random.randint(0, 1) == 0 else genitor1ImmSyst[i]
 
-
         ageMax = genitors[random.randint(0, 1)].maxAge
         sex = random.randint(0, 1)
         fertility = genitors[random.randint(0, 1)].fertility
@@ -663,7 +682,6 @@ class Agent:
         parent.addChildId(childId)
         return child
 
-
     """
     Concept: Fertility
 
@@ -676,6 +694,7 @@ class Agent:
     Dad contributes an amount equal to one half of whatever his initial endowment had been, and likewise for mom.
     To be parents, agents must have amassed at least the amount of sugar which they were endowed at birth."
     """
+
     def isFertile(self):
         if self.fertility[0] <= self.age <= self.fertility[1]:
             if self.sugar >= self.spiceCostForMating and not self.env.getHasSpice():
@@ -882,6 +901,7 @@ class Agent:
             return w1 ** ((m1 / u) * f) * w2 ** ((m2 / u) * (1 - f)) if w1 > 0 and w2 > 0 else 0
 
         return w1 ** (m1 / mt) * w2 ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
+
     """
     Concept: Combat
     
@@ -904,6 +924,7 @@ class Agent:
 
     If the site was occupuied, then the former occupant is considered "killed" -- permanently removed from play"
     """
+
     def combat(self, alpha):
         hasSpice = self.env.getHasSpice()
 
@@ -986,7 +1007,8 @@ class Agent:
         "For each neighbor, a disease that currently afflicts the agent is selected at random and given to the neighbor."
         """
 
-    def getHammingDistance(self, disease):  # returns the smallest bitwise distance between a substring of agent immune system and disease
+    def getHammingDistance(self,
+                           disease):  # returns the smallest bitwise distance between a substring of agent immune system and disease
         diseaseLength = self.env.getDiseaseLength()
         lowestNumber = sys.maxsize
         bestLoc = 0
@@ -1007,18 +1029,6 @@ class Agent:
             self.sugarMetabolism += 1
             self.addLogEntry("Contracted disease: " + str(disease))
 
-    def updateHelper(self, disease, immuneSubstr):  # updates immuneSubstr to match disease 1 hamming distance better
-        immuneSubstr = list(immuneSubstr)
-        disease = list(disease)
-        for i in range(len(immuneSubstr)):
-            if immuneSubstr[i] != disease[i]:
-                if immuneSubstr[i] == '0':
-                    immuneSubstr[i] = '1'
-                    return str(immuneSubstr)
-                else:
-                    immuneSubstr[i] = '0'
-                    return str(immuneSubstr)
-
     def updateImmuneSystem(self):
         diseaseLength = self.env.getDiseaseLength()
         for disease, loc in list(self.diseases.items()):
@@ -1028,7 +1038,7 @@ class Agent:
                 self.removeDisease(disease)
                 continue
 
-            newSubstr = self.updateHelper(disease, currentSubstr)
+            newSubstr = updateHelper(disease, currentSubstr)
             self.immuneSystem.replace(currentSubstr, newSubstr, 1)
             hammingDist, loc = self.getHammingDistance(disease)
             self.diseases[disease] = loc

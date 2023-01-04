@@ -5,13 +5,14 @@ Created on 2010-04-17
 
 Updated/extended by joshuapalicka
 '''
-
+import math
 import random
 import time
 from itertools import product
 from environment import Environment
 from agent import Agent
 import tkinter as tk
+import matplotlib as mpl
 
 import matplotlib.pyplot as plt
 
@@ -95,18 +96,21 @@ rules = {
     "seasons": False,
     "moveEat": True,  # move eat and combat need to be exclusive
     "combat": False,
-    "limitedLife": True,
+    "limitedLife": False,
     "replacement": False,
     "procreate": True,
     "transmit": False,
-    "spice": True,
-    "trade": True,
-    "credit": True,
+    "spice": False,
+    "trade": False,
+    "credit": False,
     "inheritance": False,
-    "disease": True
+    "disease": False
 }
 
-isRandom = False
+boundGraphData = True
+numDeviations = 2  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
+
+isRandom = True
 combatAlpha = 1000000
 
 if not isRandom:
@@ -117,11 +121,11 @@ Global functions
 '''
 
 
-def hexToRGB(hex):
+def hexToRGB(colorHex):
     """ #FFFFFF -> (255, 255, 255) """
-    hex = hex.lstrip('#')
-    hlen = len(hex)
-    return tuple(int(hex[i:i + hlen // 3], 16) for i in range(0, hlen, hlen // 3))
+    colorHex = colorHex.lstrip('#')
+    colorHexLen = len(colorHex)
+    return tuple(int(colorHex[i:i + colorHexLen // 3], 16) for i in range(0, colorHexLen, colorHexLen // 3))
 
 
 def RGBToHex(rgb):
@@ -169,6 +173,28 @@ def calculateGini(wealth):
         area += height - value / 2
     fair_area = height * len(wealth) / 2
     return (fair_area - area) / fair_area
+
+
+def getStandardDeviation(data):
+    mean = sum(data) / len(data)
+    variance = sum([(x - mean) ** 2 for x in data]) / len(data)
+    return math.sqrt(variance)
+
+
+def boundData(data, index):
+    if boundGraphData:
+        if len(data) > 0:
+            std = getStandardDeviation(data)
+            boundedData = []
+            modifiedIndex = []
+            mean = sum(data) / len(data)
+            bounds = std * numDeviations
+            for i in range(len(index)):
+                if mean - bounds < data[i] < mean + bounds:
+                    boundedData.append(data[i])
+                    modifiedIndex.append(index[i])
+            return boundedData, modifiedIndex
+    return data
 
 
 ''' 
@@ -516,7 +542,8 @@ class View:
         fig, ax = self.figs[ax_idx]
         ax.clear()
         index = list(range(len(self.tradePriceMean)))
-        ax.scatter(x=index, y=self.tradePriceMean, label="price", s=4)
+        data, index = boundData(self.tradePriceMean, index)
+        ax.scatter(x=index, y=data, label="price", s=4)
         ax.set_title("Mean trade price")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean price")
@@ -581,6 +608,13 @@ class View:
             self.onGraphs.remove(new_onGraph)
             self.offGraphs.append(new_onGraph)
         self.updateGraphs()
+    def handle_close(self, evt):
+        fig = self.figs.pop()
+        plt.close(fig[0])
+        self.onGraphs.remove(fig[1])
+        self.offGraphs.append(fig[1])
+
+        #self.updateGraphList()
 
     def checkAddFig(self):
         while len(self.onGraphs) > len(self.figs):
@@ -588,7 +622,7 @@ class View:
             fig, ax = plt.subplots()
             self.figs.append((fig, ax))
 
-    def updateGraphs(self):  # once match case becomes more standard, this can be rewritten to make more pythonic
+    def updateGraphs(self):  # once match case becomes more standard, this can be rewritten to be made more pythonic
         self.checkAddFig()
         totalPlots = len(self.onGraphs)
         for i in range(totalPlots):
@@ -729,7 +763,6 @@ if __name__ == '__main__':
                     for _ in range(numStartingDiseases):
                         agent.addRandomDisease()
                 agents.append(agent)
-
 
     # Create a view with an env and a list of agents in env
     view = View(screenSize, env, agents)

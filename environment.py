@@ -30,6 +30,7 @@ class Environment:
         self.idIncrement = 0
         self.loanDuration = 0
         self.loanRate = 0
+        self.hasDisease = False
 
     def getHasSpice(self):
         return self.hasSpice
