@@ -12,7 +12,6 @@ from itertools import product
 from environment import Environment
 from agent import Agent
 import tkinter as tk
-import matplotlib as mpl
 
 import matplotlib.pyplot as plt
 
@@ -59,7 +58,7 @@ growFactor2 = float(growFactor1) / 8
 # agents
 # agentColorScheme: Agents colour meaning = 0:all, 1:bySex, 2:byMetabolism, 3:byVision, 4:byGroup
 maxAgentMetabolism = 5
-maxAgentVision = 8
+maxAgentVision = 5
 initEndowment = 25, 50
 minmaxAgentAge = 60, 100
 
@@ -85,27 +84,45 @@ diseaseLength = 4  # number of bits per disease
 numDiseases = 5
 numStartingDiseases = 3
 
-# Active settings
-agentColorScheme = 4
-distributions = [
-    (50, tags0, (0, 50, 0, 50)),  # blues
-    (50, tags1, (0, 50, 0, 50))]  # reds
-
 rules = {
     "grow": True,
     "seasons": False,
     "moveEat": True,  # move eat and combat need to be exclusive
+    "canStarve": False,
+    "pollution": True,
+    "tags": False,
     "combat": False,
-    "limitedLife": False,
+    "limitedLifespan": False,
     "replacement": False,
-    "procreate": True,
+    "procreate": False,
     "transmit": False,
-    "spice": False,
-    "trade": False,
+    "spice": True,
+    "trade": True,
+    "foresight": False,
     "credit": False,
     "inheritance": False,
     "disease": False
 }
+
+if rules["tags"]:
+    agentColorScheme = 4
+
+else:
+    agentColorScheme = 1
+
+if rules["pollution"]:
+    pA = 0.1
+    pB = 0.1
+    pDiffusion = 5
+    pStartTime = 50
+
+if rules["foresight"]:
+    foresightRange = (0, 10)
+
+distributions = [
+    # if rules["tags"] == True then these distributions will be used fully, otherwise, just the first item from each tuple will be used as the number of total agents
+    (100, tags0, (0, 50, 0, 50)),  # blues
+    (100, tags1, (0, 50, 0, 50))]  # reds
 
 boundGraphData = True
 numDeviations = 2  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
@@ -141,7 +158,10 @@ def lightenColor(color, amountAtLocation):
 
 
 def initAgent(agent, tags, distribution):
-    newLocation = agent.getEnv().getRandomFreeLocation(distribution)
+    if rules["tags"]:
+        newLocation = agent.getEnv().getRandomFreeLocation(distribution)
+    else:
+        newLocation = agent.getEnv().getRandomFreeLocation((0, gridSize[0] - 1, 0, gridSize[1] - 1))
     if newLocation is None:
         return False
     agent.setLocation(newLocation)
@@ -224,9 +244,11 @@ class View:
 
         self.metabolismMean = []
         self.visionMean = []
+        self.proportionBlueTags = []
         self.tradePriceMean = []
         self.tradeVolumeMean = []
         self.gini = []
+        self.foresightMean = []
         self.numInfectedAgents = []
         self.proportionInfectedAgents = []
 
@@ -304,7 +326,8 @@ class View:
                 print("initAgent failed!")
                 self.agents.remove(agent)
         else:
-            self.agents.remove(agent)
+            if agent in self.agents:
+                self.agents.remove(agent)
 
     def hasStarved(self, agent):
         if agent.getSugar() <= 0:
@@ -378,8 +401,8 @@ class View:
             if rules["spice"]:
                 agent.setSpice(max(agent.getSpice() - agent.getSpiceMetabolism(), 0), "Metabolism")
 
-            if self.hasStarved(agent):
-                continue
+            if rules["canStarve"]:
+                self.hasStarved(agent)
 
             # Log agent's parameters
             sugarMetabolism += agent.getSugarMetabolism()
@@ -392,10 +415,11 @@ class View:
             else:
                 wealth.append(agent.getSugar() + agent.getSpice())
 
-            # DIE
             # increment age
-            alive = agent.incAge()
-            if rules["limitedLife"] and not alive:
+            if rules["limitedLifespan"]:
+                agent.setAlive = agent.incAge() < agent.getMaxAge()
+
+            if not agent.isAlive():
                 # free environment
                 self.env.setAgent(agent.getLocation(), None)
                 # remove or replace agent
@@ -413,9 +437,23 @@ class View:
                 ((sugarMetabolism + spiceMetabolism) / 2) / float(numAgents) if numAgents > 0 else 0)
 
         self.visionMean.append(vision / float(numAgents) if numAgents > 0 else 0)
-        self.tradePriceMean.append(sum(trades) / len(trades)) if len(trades) > 0 else self.tradePriceMean.append(0)
-        self.tradeVolumeMean.append(len(trades)) if len(trades) > 0 else self.tradeVolumeMean.append(0)
+        if rules["trade"]:
+            self.tradePriceMean.append(sum(trades) / len(trades)) if len(trades) > 0 else self.tradePriceMean.append(0)
+            self.tradeVolumeMean.append(len(trades)) if len(trades) > 0 else self.tradeVolumeMean.append(0)
         self.gini.append(calculateGini(wealth) if numAgents > 0 else 0)
+
+        if rules["foresight"]:
+            foresight = 0
+            for agent in self.agents:
+                foresight += agent.getForesight()
+            self.foresightMean.append(foresight / float(numAgents) if numAgents > 0 else 0)
+
+        if rules["tags"]:
+            numBlue = 0
+            for agent in self.agents:
+                if agent.getTribe() == 0:
+                    numBlue += 1
+            self.proportionBlueTags.append(numBlue / float(numAgents) if numAgents > 0 else 0)
 
         if rules["disease"]:
             numInfected = 0
@@ -439,6 +477,7 @@ class View:
                 if rules["grow"]:
                     self.env.growRegion(seasonRegions["north"], growFactor2)
                     self.env.growRegion(seasonRegions["south"], growFactor1)
+
         elif rules["grow"]:
             self.season = "NA"
             self.env.grow(growFactor)
@@ -537,6 +576,15 @@ class View:
         ax.legend()
         self.figs[ax_idx] = (fig, ax)
 
+    def updateTagProportionPlot(self, ax_idx):
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
+        ax.plot(range(len(self.proportionBlueTags)), self.proportionBlueTags)
+        ax.set_title("Proportion of Blue tags to Red tags time series")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Proportion of Blue tags")
+        self.figs[ax_idx] = (fig, ax)
+
     def updateTradePricePlot(self, ax_idx):
         # create figure
         fig, ax = self.figs[ax_idx]
@@ -572,6 +620,16 @@ class View:
         ax.legend()
         self.figs[ax_idx] = (fig, ax)
 
+    def updateForesightPlot(self, ax_idx):
+        fig, ax = self.figs[ax_idx]
+        ax.clear()
+        # create figure
+        ax.plot(range(len(self.foresightMean)), self.foresightMean)
+        ax.set_title("Mean Foresight time series")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Mean Foresight")
+        self.figs[ax_idx] = (fig, ax)
+
     def updateInfectedPlot(self, ax_idx):
         fig, ax = self.figs[ax_idx]
         ax.clear()
@@ -587,11 +645,18 @@ class View:
 
         self.options.append("Population")
         self.options.append("Wealth")
-        self.options.append("Metabolism and vision")
+        self.options.append("Metabolism and Vision")
+        self.options.append("Gini")
+
+        if rules["tags"]:
+            self.options.append("Tag Proportion")
+
         if rules["trade"]:
-            self.options.append("Trade price")
-            self.options.append("Trade volume")
-            self.options.append("Gini")
+            self.options.append("Trade Price")
+            self.options.append("Trade Volume")
+
+        if rules["foresight"]:
+            self.options.append("Mean Foresight")
 
         if rules["disease"]:
             self.options.append("Proportion Infected")
@@ -600,21 +665,34 @@ class View:
         self.onGraphs = []
 
     def updateGraphList(self, *args):
-        new_onGraph = self.variable.get()
+        new_onGraph = self.lastSelectedGraph.get()
+        idx = self.options.index(new_onGraph)
+
         if new_onGraph in self.offGraphs:
             self.offGraphs.remove(new_onGraph)
             self.onGraphs.append(new_onGraph)
+            idx = self.options.index(new_onGraph)
+            self.menu.delete(idx)
+            self.menu.insert_checkbutton(idx, label=new_onGraph, font='Helvetica 10 bold', onvalue=new_onGraph,
+                                         offvalue=new_onGraph,
+                                         variable=self.lastSelectedGraph,
+                                         command=self.updateGraphList, indicatoron=False)
         elif new_onGraph in self.onGraphs:
             self.onGraphs.remove(new_onGraph)
             self.offGraphs.append(new_onGraph)
+
+            self.menu.delete(idx)
+            self.menu.insert_checkbutton(idx, label=new_onGraph, onvalue=new_onGraph, offvalue=new_onGraph,
+                                         variable=self.lastSelectedGraph,
+                                         command=self.updateGraphList, indicatoron=False)
         self.updateGraphs()
+
     def handle_close(self, evt):
         fig = self.figs.pop()
         plt.close(fig[0])
         self.onGraphs.remove(fig[1])
         self.offGraphs.append(fig[1])
-
-        #self.updateGraphList()
+        # self.updateGraphList()
 
     def checkAddFig(self):
         while len(self.onGraphs) > len(self.figs):
@@ -630,14 +708,18 @@ class View:
                 self.updatePopulationPlot(i)
             elif self.onGraphs[i] == "Wealth":
                 self.updateWealthPlot(i)
-            elif self.onGraphs[i] == "Metabolism and vision":
+            elif self.onGraphs[i] == "Tag Proportion":
+                self.updateTagProportionPlot(i)
+            elif self.onGraphs[i] == "Metabolism and Vision":
                 self.updateMetabolismVisionPlot(i)
-            elif self.onGraphs[i] == "Trade price":
+            elif self.onGraphs[i] == "Trade Price":
                 self.updateTradePricePlot(i)
-            elif self.onGraphs[i] == "Trade volume":
+            elif self.onGraphs[i] == "Trade Volume":
                 self.updateTradeVolumePlot(i)
             elif self.onGraphs[i] == "Gini":
                 self.updateGiniPlot(i)
+            elif self.onGraphs[i] == "Mean Foresight":
+                self.updateForesightPlot(i)
             elif self.onGraphs[i] == "Proportion Infected":
                 self.updateInfectedPlot(i)
             self.figs[i][0].canvas.draw()
@@ -671,14 +753,18 @@ class View:
         self.btnUpdate = tk.Button(self.window, text="Update Screen", command=self.toggleUpdateScreen)
         self.btnUpdate.grid(row=0, column=2, sticky="nsew")
 
-        self.variable = tk.StringVar(self.window)
-        self.variable.set(self.options[0])  # default value
+        self.lastSelectedGraph = tk.StringVar(self.window)
+        self.lastSelectedGraph.set(self.options[0])  # default value
+
         self.menubutton = tk.Menubutton(self.window, text="Graphs", relief=tk.RAISED)
         self.menu = tk.Menu(self.menubutton, tearoff=0)
+
         self.menubutton.configure(menu=self.menu)
+
+        self.optionNames = self.options.copy()
         for option in self.options:
-            self.menu.add_checkbutton(label=option, onvalue=option, offvalue=option, variable=self.variable,
-                                      command=self.updateGraphList)
+            self.menu.add_checkbutton(label=option, onvalue=option, offvalue=option, variable=self.lastSelectedGraph,
+                                      command=self.updateGraphList, indicatoron=False)
         self.menubutton.grid(row=0, column=3, sticky="nsew")
 
         self.canvas.grid(row=1, column=0, columnspan=4, sticky="nsew")
@@ -701,6 +787,9 @@ class View:
                 if self.updateScreen:
                     self.draw()
 
+            self.window.update()
+
+            if not self.pause:
                 # calculate and display the framerate
                 time_now = time.time()
                 time_since_last_frame = time_now - last_time
@@ -710,7 +799,7 @@ class View:
                 if self.update:
                     print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
                           "; Population = ", len(self.agents), " -  press F12 to pause.")
-            self.window.update()
+
         exit(0)
 
 
@@ -728,12 +817,21 @@ if __name__ == '__main__':
     # add radial food site 
     env.addSugarSite(sites["southwest"], maxCapacity)
 
+    if rules["pollution"]:
+        env.setPollutionRules(True, pA, pB)
+
     if rules["spice"]:
         # add radial food site
         env.addSpiceSite(sites["southeast"], maxCapacity)
 
         # add radial food site
         env.addSpiceSite(sites["northwest"], maxCapacity)
+
+    env.setHasLimitedLifespan(rules["limitedLifespan"])
+
+    if rules["foresight"]:
+        env.setHasForesight(True)
+        env.setForesightRange(foresightRange)
 
     # grow to max capacity
     if rules["grow"]:

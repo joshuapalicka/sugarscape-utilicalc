@@ -20,9 +20,9 @@ class Environment:
         (width, height) = size
         self.gridWidth = width
         self.gridHeight = height
-        self.grid = [[[0, 0, 0, 0, None] for __ in range(width)] for __ in
+        self.grid = [[[0, 0, 0, 0, None, 0] for __ in range(width)] for __ in
                      range(  # was sugar, capacity, agent. now sugar, spice, sugar capacity, spice capacity, agent
-                         height)]  # indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent
+                         height)]  # indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent, [i][j][5] = amount of pollution
         self.hasSpice = False
         self.hasTags = False
         self.diseases = []
@@ -31,6 +31,12 @@ class Environment:
         self.loanDuration = 0
         self.loanRate = 0
         self.hasDisease = False
+        self.foresight = False
+        self.foresightRange = 0, 0
+        self.limitedLifespan = True
+        self.hasPollution = False
+        self.pA = 0
+        self.pB = 0
 
     def getHasSpice(self):
         return self.hasSpice
@@ -187,3 +193,35 @@ class Environment:
 
     def getHasDisease(self):
         return self.hasDisease
+
+    def setHasForesight(self, foresight):
+        self.foresight = foresight
+
+    def getHasForesight(self):
+        return self.foresight
+
+    def setForesightRange(self, foresightRange):
+        self.foresightRange = foresightRange
+
+    def getForesightRange(self):
+        return self.foresightRange
+
+    def setHasLimitedLifespan(self, limitedLifespan):
+        self.limitedLifespan = limitedLifespan
+    def hasLimitedLifespan(self):
+        return self.limitedLifespan
+
+    def setPollutionRules(self, pA, pB):
+        self.hasPollution = True
+        self.pA = pA
+        self.pB = pB
+
+    def hasPollution(self):
+        return self.hasPollution
+
+    def getPollutionRules(self):
+        return self.pA, self.pB
+
+    def spreadPollution(self):
+        #for i, j in product(range(self.gridWidth), range(self.gridHeight)):
+        pass

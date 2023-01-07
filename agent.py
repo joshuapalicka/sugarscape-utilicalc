@@ -155,6 +155,7 @@ class Agent:
         self.numAfflictedDiseases = 0
         self.childIds = []
         self.alive = True
+        self.foresight = self.generateForesight()
 
     ''' 
     get / set section 
@@ -211,20 +212,18 @@ class Agent:
         return self.sugar
 
     def setSugar(self, amount, reason=""):
-        if amount != 0:
-            previousSugar = self.sugar
-            self.sugar = amount
-            sugarLog_str = "sugar: " + str(previousSugar) + " -> " + str(self.sugar) + " (" + reason + ")"
-            self.sugarLog.append(sugarLog_str)
-            self.addLogEntry(sugarLog_str)
+        previousSugar = self.sugar
+        self.sugar = max(amount, 0 if self.env.hasLimitedLifespan() else 0.01)
+        sugarLog_str = "sugar: " + str(previousSugar) + " -> " + str(self.sugar) + " (" + reason + ")"
+        self.sugarLog.append(sugarLog_str)
+        self.addLogEntry(sugarLog_str)
 
     def setSpice(self, amount, reason=""):
-        if amount != 0:
-            previousSpice = self.spice
-            self.spice = amount
-            spiceLog_str = "spice: " + str(previousSpice) + " -> " + str(self.spice) + " (" + reason + ")"
-            self.spiceLog.append(spiceLog_str)
-            self.addLogEntry(spiceLog_str)
+        previousSpice = self.spice
+        self.spice = max(amount, 0 if self.env.hasLimitedLifespan() else 0.01)
+        spiceLog_str = "spice: " + str(previousSpice) + " -> " + str(self.spice) + " (" + reason + ")"
+        self.spiceLog.append(spiceLog_str)
+        self.addLogEntry(spiceLog_str)
 
     def getSpice(self):
         return self.spice
@@ -235,6 +234,9 @@ class Agent:
 
     def getAge(self):
         return self.age
+
+    def getMaxAge(self):
+        return self.maxAge
 
     def setSex(self, sex):
         self.sex = sex
@@ -316,6 +318,15 @@ class Agent:
 
     def setAlive(self, alive):
         self.alive = alive
+
+    def generateForesight(self):
+        if self.env.getHasForesight:
+            foresightRange = self.env.getForesightRange()
+            return random.randint(foresightRange[0], foresightRange[1])
+        return 0, 0
+
+    def getForesight(self):
+        return self.foresight
 
     def addChildId(self, childId):
         self.childIds.append(childId)
@@ -710,24 +721,17 @@ class Agent:
     Follows Agent movement rule M from Growing Artificial Societies by Epstein and Axtell, Pg 25
 
     "Look out as far as vision permits in the four principal lattice directions and identify the unoccupied site(s) having the most sugar.
-
     If the greatest sugar value appears on multiple sites then select the nearest one.
-
     Move to this site.
-
     Collect all the sugar at this new position.
-
     Increment the agent's accumulated sugar wealth by the sugar collected and decrement by the agent's metabolic rate."
-
+    
     Also can follow multicommodity agent movement rule M from Growing Artificial Societies by Epstein and Axtell, Pg 98
-
+    
     "Look out as far as vision permits in each of the four lattice directions, north, south, east, and west
-
     Considering only unoccupied lattice positions, find the nearest position producing maximum welfare
-
     Move to the new position
-
-    Collect all the resources at that location
+    Collect all the resources at that location"
     """
 
     def move(self):
@@ -900,6 +904,13 @@ class Agent:
             u = m1 * f + m2 * (1 - f)
             return w1 ** ((m1 / u) * f) * w2 ** ((m2 / u) * (1 - f)) if w1 > 0 and w2 > 0 else 0
 
+        if self.env.getHasForesight() and x and y:
+            # follows from page 129 and 130 of the book "Growing Artificial Societies" by Epstein and Axtell
+            sugarForesight = (w1 - self.foresight * m1) if w1 - self.foresight * m1 > 0 else 0
+            spiceForesight = (w2 - self.foresight * m2) if w2 - self.foresight * m2 > 0 else 0
+
+            return sugarForesight ** (m1 / mt) * spiceForesight ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
+
         return w1 ** (m1 / mt) * w2 ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
 
     """
@@ -991,21 +1002,21 @@ class Agent:
         self.env.setCapacity((self.x, self.y), 0)
         return killed
 
-        """
-        Concept: Disease
+    """
+    Concept: Disease
 
-        Follows agent immune response rule and agent disease transmission rule from pgs. 144-145 of the book "Growing Artificial Societies" by Epstein and Axtell
+    Follows agent immune response rule and agent disease transmission rule from pgs. 144-145 of the book "Growing Artificial Societies" by Epstein and Axtell
 
-        The immune response rule is as follows:
-        "If the disease is a substring of the immune system then end (the agent is immune), 
-        else (the agent is infected) go to the following step:
+    The immune response rule is as follows:
+    "If the disease is a substring of the immune system then end (the agent is immune), 
+    else (the agent is infected) go to the following step:
 
-        The substring in the agent immune system having the smallest Hamming distance from the disease is selected and 
-        the first bit at which it is different from the disease string is changed to match the disease."
+    The substring in the agent immune system having the smallest Hamming distance from the disease is selected and 
+    the first bit at which it is different from the disease string is changed to match the disease."
 
-        The disease transmission rule is as follows:
-        "For each neighbor, a disease that currently afflicts the agent is selected at random and given to the neighbor."
-        """
+    The disease transmission rule is as follows:
+    "For each neighbor, a disease that currently afflicts the agent is selected at random and given to the neighbor."
+    """
 
     def getHammingDistance(self,
                            disease):  # returns the smallest bitwise distance between a substring of agent immune system and disease
