@@ -755,16 +755,25 @@ class Agent:
                 location = (x, y)
                 sugarCapacity = self.env.getSugarCapacity((x, y))
                 distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
-                locations.append((location, sugarCapacity, distance))
+                pollution = self.env.getPollutionAtLocation((x, y))
+                locations.append((location, sugarCapacity, distance, pollution))
 
             locations.sort(key=lambda x: x[2])
-            best_location = max(locations, key=lambda x: x[1])
+            if self.env.getHasPollution():
+                best_location = max(locations, key=lambda x: x[1] / (1 + x[3]))
+
+            else:
+                best_location = max(locations, key=lambda x: x[1])
+
+            best_sugar = best_location[1]
+
+            if self.env.getHasPollution():
+                self.env.polluteSite(best_location[0], best_sugar, 0)
 
             if best_location[0] != (self.x, self.y):
                 move = True
                 newx, newy = best_location[0]
 
-            best_sugar = best_location[1]
             self.setSugar(max(self.sugar + best_sugar, 0), "Move")
 
         else:
@@ -778,6 +787,7 @@ class Agent:
 
             locations.sort(key=lambda x: x[4])
             best_location = max(locations, key=lambda x: x[0])  # gets closest location with highest welfare
+
             if best_location[1] != (self.x, self.y):
                 move = True
                 newx, newy = best_location[1]

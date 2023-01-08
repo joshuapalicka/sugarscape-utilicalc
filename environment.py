@@ -20,9 +20,11 @@ class Environment:
         (width, height) = size
         self.gridWidth = width
         self.gridHeight = height
-        self.grid = [[[0, 0, 0, 0, None, 0] for __ in range(width)] for __ in
-                     range(  # was sugar, capacity, agent. now sugar, spice, sugar capacity, spice capacity, agent
-                         height)]  # indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent, [i][j][5] = amount of pollution
+        """
+        Grid is indexed by: [i][j][0] = sugar capacity (amt currently stored), [i][j][1] = spice capacity (amt currently stored), 
+        [i][j][2] = maxSugarCapacity, [i][j][3] = maxSpiceCapacity, [i][j][4] = agent, [i][j][5] = amount of pollution 
+        """
+        self.grid = [[[0, 0, 0, 0, None, 0.0] for _ in range(width)] for _ in range(height)]
         self.hasSpice = False
         self.hasTags = False
         self.diseases = []
@@ -37,6 +39,9 @@ class Environment:
         self.hasPollution = False
         self.pA = 0
         self.pB = 0
+        self.pDiffusionRate = 0
+        self.pollutionStartTime = 0
+        self.diffusionStartTime = 0
 
     def getHasSpice(self):
         return self.hasSpice
@@ -208,20 +213,78 @@ class Environment:
 
     def setHasLimitedLifespan(self, limitedLifespan):
         self.limitedLifespan = limitedLifespan
+
     def hasLimitedLifespan(self):
         return self.limitedLifespan
 
-    def setPollutionRules(self, pA, pB):
+    """
+        Concept: Pollution
+
+        Follows Agent pollution formation rule P_ab, agent movement rule M, modified for pollution, and pollution diffusion rule D_a 
+        from Growing Artificial Societies by Epstein and Axtell, Pgs 47-48
+
+        P_ab: "When sugar quantity s is gathered from the sugarscape, an amount of production pollution is generated in quantity a_s. 
+        When sugar amount m is consumed, (metabolized), consumption pollution is generated according to B_m. 
+        The total pollution on a site at time t, p&t, is the sum of the pollution present at the previous time, plus the 
+        pollution resulting from production and consumption activities, that is, p^t = p^t-1 + a_s + b_m"
+        
+        M modified for pollution: "Look out as far as vision permits in the four principal lattice directions and identify 
+        the unoccupied site(s) having the maximum sugar to pollution ratio; If the maximum sugar to pollution ratio appears 
+        on multiple sites, then select the nearest one; Move to this site; Collect all the sugar at this new position"
+        
+        D_a: "Each a time periods and at each site, compute the pollution flux -- the average pollution level over all 
+        von Neumann neighboring sites; Each site's flux becomes its new pollution level"
+        
+        """
+
+    def setPollutionRules(self, pA, pB, pDiffusionRate, pollutionStartTime, diffusionStartTime):
         self.hasPollution = True
         self.pA = pA
         self.pB = pB
+        self.pDiffusionRate = pDiffusionRate
+        self.pollutionStartTime = pollutionStartTime
+        self.diffusionStartTime = diffusionStartTime
 
-    def hasPollution(self):
+    def polluteSite(self, location, productionPollution, consumptionPollution):
+        if self.pollutionStartTime <= self.time:
+            (i, j) = location
+            self.grid[i][j][5] += (productionPollution * self.pA) + (consumptionPollution * self.pB)
+
+    def diffusePollutionAtLocation(self, x, y):
+        neighbourhood = []
+
+        n = x, y + 1
+        if self.isLocationValid(n):
+            neighbourhood.append(n)
+
+        s = x, y - 1
+        if self.isLocationValid(s):
+            neighbourhood.append(s)
+
+        e = x + 1, y
+        if self.isLocationValid(e):
+            neighbourhood.append(e)
+
+        w = x - 1, y
+        if self.isLocationValid(w):
+            neighbourhood.append(w)
+
+        pollutionAmt = 0
+        for location in neighbourhood:
+            pollutionAmt += self.grid[location[0]][location[1]][5]
+
+        self.grid[x][y][5] = pollutionAmt / len(neighbourhood)
+
+    def getHasPollution(self):
         return self.hasPollution
 
     def getPollutionRules(self):
-        return self.pA, self.pB
+        return self.pA, self.pB, self.pDiffusionRate, self.pollutionStartTime, self.diffusionStartTime
 
     def spreadPollution(self):
-        #for i, j in product(range(self.gridWidth), range(self.gridHeight)):
-        pass
+        for i, j in product(range(self.gridWidth), range(self.gridHeight)):
+            self.diffusePollutionAtLocation(i, j)
+
+    def getPollutionAtLocation(self, location):
+        (i, j) = location
+        return self.grid[i][j][5]

@@ -14,6 +14,7 @@ from agent import Agent
 import tkinter as tk
 
 import matplotlib.pyplot as plt
+import matplotlib
 
 ''' 
 initial simulation parameters
@@ -32,7 +33,8 @@ colors = {
     "both": "#BF8232",
     "red": "#FA3232",
     "pink": "#FA32FA",
-    "blue": "#3232FA"
+    "blue": "#3232FA",
+    "pollution": "#619B13"
 }
 
 # environment
@@ -43,7 +45,7 @@ sites = {
     "northwest": (10, 10, 14)
 }
 
-maxCapacity = 10  # !!! < or = nbr items in colorSugar array
+maxCapacity = 10
 seasonPeriod = 50
 
 seasonRegions = {
@@ -88,16 +90,16 @@ rules = {
     "grow": True,
     "seasons": False,
     "moveEat": True,  # move eat and combat need to be exclusive
-    "canStarve": False,
+    "canStarve": True,
     "pollution": True,
     "tags": False,
     "combat": False,
-    "limitedLifespan": False,
+    "limitedLifespan": True,
     "replacement": False,
-    "procreate": False,
+    "procreate": True,
     "transmit": False,
-    "spice": True,
-    "trade": True,
+    "spice": False,  # following must be off for pollution
+    "trade": False,
     "foresight": False,
     "credit": False,
     "inheritance": False,
@@ -111,10 +113,11 @@ else:
     agentColorScheme = 1
 
 if rules["pollution"]:
-    pA = 0.1
-    pB = 0.1
-    pDiffusion = 5
-    pStartTime = 50
+    pA = .1  # production pollution
+    pB = .1  # consumption pollution
+    pDiffusionRate = 5
+    pollutionStartTime = 50
+    diffusionStartTime = 100
 
 if rules["foresight"]:
     foresightRange = (0, 10)
@@ -150,11 +153,18 @@ def RGBToHex(rgb):
     return '#%02x%02x%02x' % rgb
 
 
-def lightenColor(color, amountAtLocation):
+def lightenColorByCapacity(color, amountAtLocation):
     """ lighten color by factor """
     factor = amountAtLocation / maxCapacity
     rgb = hexToRGB(color)
     return RGBToHex(tuple(int(c + (255 - c) * (1 - factor)) for c in rgb))
+
+
+def lightenColorByPollution(color, pollution):
+    """ lighten color by factor """
+    factor = pollution / 10
+    rgb = hexToRGB(color)
+    return RGBToHex(tuple(int(c + (255 - c) * (1 - factor if factor < 1 else 0)) for c in rgb))
 
 
 def initAgent(agent, tags, distribution):
@@ -235,6 +245,7 @@ class View:
         self.quit = False
         self.siteSize = screenSize[0] / env.gridWidth
         self.radius = int(self.siteSize * 0.5)
+        self.colorByPollution = False
         # init env
         self.env = env
         self.season = ""
@@ -396,6 +407,9 @@ class View:
             if rules["transmit"]:
                 agent.transmit()
 
+            if self.env.getHasPollution() and not rules["spice"] and agent.getSugar() > 0:
+                self.env.polluteSite((agent.getLocation()), 0, agent.getSugarMetabolism())
+
             agent.setSugar(max(agent.getSugar() - agent.getSugarMetabolism(), 0), "Metabolism")
 
             if rules["spice"]:
@@ -417,7 +431,7 @@ class View:
 
             # increment age
             if rules["limitedLifespan"]:
-                agent.setAlive = agent.incAge() < agent.getMaxAge()
+                agent.setAlive(agent.incAge() < agent.getMaxAge())
 
             if not agent.isAlive():
                 # free environment
@@ -437,6 +451,7 @@ class View:
                 ((sugarMetabolism + spiceMetabolism) / 2) / float(numAgents) if numAgents > 0 else 0)
 
         self.visionMean.append(vision / float(numAgents) if numAgents > 0 else 0)
+
         if rules["trade"]:
             self.tradePriceMean.append(sum(trades) / len(trades)) if len(trades) > 0 else self.tradePriceMean.append(0)
             self.tradeVolumeMean.append(len(trades)) if len(trades) > 0 else self.tradeVolumeMean.append(0)
@@ -482,25 +497,32 @@ class View:
             self.season = "NA"
             self.env.grow(growFactor)
 
+        if rules["pollution"]:
+            if self.iteration >= diffusionStartTime and self.iteration % pDiffusionRate == 0:
+                self.env.spreadPollution()
+
         if self.iteration % graphUpdateFrequency == 0:
             if len(self.onGraphs) > 0:
                 self.updateGraphs()
 
     def getFillColor(self, row, col):
         current_agent = env.getAgent((row, col))
+
         # change color of site depending on what's on it - but only if it wasn't already that color (performance optimization)
         if current_agent:
             fill_color = self.agentColorSchemes[agentColorScheme](self, current_agent)
+        elif self.colorByPollution:
+            fill_color = lightenColorByPollution(colors["pollution"], env.getPollutionAtLocation((row, col)))
         else:
             sugarCapacity = env.getSugarCapacity((row, col))
             if not rules["spice"]:
-                fill_color = lightenColor(colors["sugar"], sugarCapacity)
+                fill_color = lightenColorByCapacity(colors["sugar"], sugarCapacity)
             else:
                 spiceCapacity = env.getSpiceCapacity((row, col))
                 if sugarCapacity >= spiceCapacity:
-                    fill_color = lightenColor(colors["sugar"], sugarCapacity)
+                    fill_color = lightenColorByCapacity(colors["sugar"], sugarCapacity)
                 elif sugarCapacity < spiceCapacity:
-                    fill_color = lightenColor(colors["spice"], spiceCapacity)
+                    fill_color = lightenColorByCapacity(colors["spice"], spiceCapacity)
                 else:
                     fill_color = "white"
         return fill_color
@@ -535,6 +557,10 @@ class View:
     def toggleUpdateScreen(self):
         print("Update: ", self.updateScreen)
         self.updateScreen = not self.updateScreen
+
+    def toggleColorByPollution(self):
+        self.colorByPollution = not self.colorByPollution
+        self.draw()
 
     def getAgentsWealth(self):
         wealth = []
@@ -672,8 +698,8 @@ class View:
             self.offGraphs.remove(new_onGraph)
             self.onGraphs.append(new_onGraph)
             idx = self.options.index(new_onGraph)
-            self.menu.delete(idx)
-            self.menu.insert_checkbutton(idx, label=new_onGraph, font='Helvetica 10 bold', onvalue=new_onGraph,
+            self.graphMenu.delete(idx)
+            self.graphMenu.insert_checkbutton(idx, label=new_onGraph, font='Helvetica 10 bold', onvalue=new_onGraph,
                                          offvalue=new_onGraph,
                                          variable=self.lastSelectedGraph,
                                          command=self.updateGraphList, indicatoron=False)
@@ -681,8 +707,8 @@ class View:
             self.onGraphs.remove(new_onGraph)
             self.offGraphs.append(new_onGraph)
 
-            self.menu.delete(idx)
-            self.menu.insert_checkbutton(idx, label=new_onGraph, onvalue=new_onGraph, offvalue=new_onGraph,
+            self.graphMenu.delete(idx)
+            self.graphMenu.insert_checkbutton(idx, label=new_onGraph, onvalue=new_onGraph, offvalue=new_onGraph,
                                          variable=self.lastSelectedGraph,
                                          command=self.updateGraphList, indicatoron=False)
         self.updateGraphs()
@@ -722,6 +748,7 @@ class View:
                 self.updateForesightPlot(i)
             elif self.onGraphs[i] == "Proportion Infected":
                 self.updateInfectedPlot(i)
+            #plt.gcf().canvas.manager.window.overrideredirect(1)
             self.figs[i][0].canvas.draw()
             self.figs[i][0].canvas.flush_events()
 
@@ -729,6 +756,10 @@ class View:
             for _ in range(len(self.figs) - totalPlots):
                 fig = self.figs.pop()
                 plt.close(fig[0])
+
+    def on_closing(self):
+        self.window.destroy()
+        self.quit = True
 
     # the main game loop
     def createWindow(self):  # TODO: if graph window closed, crash occurs
@@ -742,34 +773,44 @@ class View:
         self.window.resizable(True, True)
         self.window.configure(background='white')
 
+        matplotlib.use("TkAgg")
+
         self.canvas = tk.Canvas(self.window, width=self.width, height=self.height, bg='white')
 
-        self.btnQuit = tk.Button(self.window, text="Quit", command=self.setQuit)
-        self.btnQuit.grid(row=0, column=0, sticky="nsew")
-
         self.btnPlay = tk.Button(self.window, text="Play/Pause", command=self.togglePause)
-        self.btnPlay.grid(row=0, column=1, sticky="nsew")
+        self.btnPlay.grid(row=0, column=0, sticky="nsew")
 
         self.btnUpdate = tk.Button(self.window, text="Update Screen", command=self.toggleUpdateScreen)
-        self.btnUpdate.grid(row=0, column=2, sticky="nsew")
+        self.btnUpdate.grid(row=0, column=1, sticky="nsew")
 
         self.lastSelectedGraph = tk.StringVar(self.window)
         self.lastSelectedGraph.set(self.options[0])  # default value
 
-        self.menubutton = tk.Menubutton(self.window, text="Graphs", relief=tk.RAISED)
-        self.menu = tk.Menu(self.menubutton, tearoff=0)
+        self.btnGraphMenu = tk.Menubutton(self.window, text="Graphs", relief=tk.RAISED)
+        self.graphMenu = tk.Menu(self.btnGraphMenu, tearoff=0)
 
-        self.menubutton.configure(menu=self.menu)
+        self.btnGraphMenu.configure(menu=self.graphMenu)
 
         self.optionNames = self.options.copy()
         for option in self.options:
-            self.menu.add_checkbutton(label=option, onvalue=option, offvalue=option, variable=self.lastSelectedGraph,
-                                      command=self.updateGraphList, indicatoron=False)
-        self.menubutton.grid(row=0, column=3, sticky="nsew")
+            self.graphMenu.add_checkbutton(label=option, onvalue=option, offvalue=option,
+                                           variable=self.lastSelectedGraph,
+                                           command=self.updateGraphList, indicatoron=False)
+        self.btnGraphMenu.grid(row=0, column=2, sticky="nsew")
+
+        self.btnViewMenu = tk.Menubutton(self.window, text="View", relief=tk.RAISED)
+        self.viewMenu = tk.Menu(self.btnViewMenu, tearoff=0)
+        self.btnViewMenu.configure(menu=self.viewMenu)
+        if rules["pollution"]:
+            self.viewMenu.add_checkbutton(label="Color By Pollution", command=self.toggleColorByPollution)
+
+        self.btnViewMenu.grid(row=0, column=3, sticky="nsew")
 
         self.canvas.grid(row=1, column=0, columnspan=4, sticky="nsew")
 
         self.window.bind("<Escape>", lambda x: self.setQuit())
+
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.initialDraw()
         self.updateWindow()
@@ -818,7 +859,7 @@ if __name__ == '__main__':
     env.addSugarSite(sites["southwest"], maxCapacity)
 
     if rules["pollution"]:
-        env.setPollutionRules(True, pA, pB)
+        env.setPollutionRules(pA, pB, pDiffusionRate, pollutionStartTime, diffusionStartTime)
 
     if rules["spice"]:
         # add radial food site
