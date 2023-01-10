@@ -34,7 +34,7 @@ colors = {
     "red": "#FA3232",
     "pink": "#FA32FA",
     "blue": "#3232FA",
-    "pollution": "#619B13"
+    "pollution": "#88C641"
 }
 
 # environment
@@ -61,7 +61,7 @@ growFactor2 = float(growFactor1) / 8
 # agentColorScheme: Agents colour meaning = 0:all, 1:bySex, 2:byMetabolism, 3:byVision, 4:byGroup
 maxAgentMetabolism = 5
 maxAgentVision = 5
-initEndowment = 25, 50
+initEndowment = 50, 100
 minmaxAgentAge = 60, 100
 
 female = 0
@@ -82,19 +82,19 @@ loanDuration = 10
 
 # There exists 2^(diseaseLength) unique diseases and 2^immuneSystemSize unique immune systems
 immuneSystemSize = 10  # number of bits per immune system
-diseaseLength = 4  # number of bits per disease
+diseaseLength = 3  # number of bits per disease
 numDiseases = 5
-numStartingDiseases = 3
+numStartingDiseases = 2
 
 rules = {
     "grow": True,
     "seasons": False,
     "moveEat": True,  # move eat and combat need to be exclusive
     "canStarve": True,
-    "pollution": True,
-    "tags": False,
+    "pollution": False,
+    "tags": True,
     "combat": False,
-    "limitedLifespan": True,
+    "limitedLifespan": False,
     "replacement": False,
     "procreate": True,
     "transmit": False,
@@ -124,8 +124,8 @@ if rules["foresight"]:
 
 distributions = [
     # if rules["tags"] == True then these distributions will be used fully, otherwise, just the first item from each tuple will be used as the number of total agents
-    (100, tags0, (0, 50, 0, 50)),  # blues
-    (100, tags1, (0, 50, 0, 50))]  # reds
+    (125, tags0, (0, 50, 0, 50)),  # blues
+    (125, tags1, (0, 50, 0, 50))]  # reds
 
 boundGraphData = True
 numDeviations = 2  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
@@ -177,6 +177,7 @@ def initAgent(agent, tags, distribution):
     agent.setLocation(newLocation)
     agent.setSugarMetabolism(random.randint(1, maxAgentMetabolism))
     agent.setInitialSugarEndowment(random.randint(initEndowment[0], initEndowment[1]))
+
     if rules["spice"]:
         agent.setSpiceMetabolism(random.randint(1, maxAgentMetabolism))
         agent.setInitialSpiceEndowment(random.randint(initEndowment[0], initEndowment[1]))
@@ -331,30 +332,23 @@ class View:
         if rules["replacement"]:
             # replace with agent of same tribe
             tags = agent.getTags()
-            if initAgent(agent, tags, self.findDistribution(tags)):
-                self.env.setAgent(agent.getLocation(), agent)
-            else:
-                print("initAgent failed!")
-                self.agents.remove(agent)
-        else:
-            if agent in self.agents:
-                self.agents.remove(agent)
+            newAgent = Agent(env)
+            if initAgent(newAgent, tags, self.findDistribution(tags)):
+                self.env.setAgent(newAgent.getLocation(), newAgent)
+                self.agents.append(newAgent)
+
+        if agent in self.agents:
+            self.agents.remove(agent)
 
     def hasStarved(self, agent):
-        if agent.getSugar() <= 0:
+        if agent.getSugar() <= 0.1:
             agent.addLogEntry("Starved due to lack of sugar")
             # free environment
-            self.env.setAgent(agent.getLocation(), None)
-            # remove or replace agent
-            self.removeAgent(agent)
-            return True
+            agent.setAlive(False)
         if rules["spice"]:
-            if agent.getSpice() <= 0:
+            if agent.getSpice() <= 0.1:
                 agent.addLogEntry("Starved due to lack of spice")
-                self.env.setAgent(agent.getLocation(), None)
-                self.removeAgent(agent)
-                return True
-        return False
+                agent.setAlive(False)
 
     #  put game update code here
     def updateGame(self):
@@ -390,12 +384,13 @@ class View:
             # PROCREATE
             if rules["procreate"] and agent.isFertile():
                 mateItr = agent.mate()
-                while True:
+                canMate = True
+                while canMate:
                     try:
                         # if a new baby is born, append it to the agents' list
                         self.agents.append(next(mateItr))
                     except StopIteration:
-                        break
+                        canMate = False
 
             if rules["disease"]:
                 agent.disease()
@@ -407,16 +402,13 @@ class View:
             if rules["transmit"]:
                 agent.transmit()
 
-            if self.env.getHasPollution() and not rules["spice"] and agent.getSugar() > 0:
+            if rules["pollution"] and not rules["spice"] and agent.getSugar() > 0:
                 self.env.polluteSite((agent.getLocation()), 0, agent.getSugarMetabolism())
 
             agent.setSugar(max(agent.getSugar() - agent.getSugarMetabolism(), 0), "Metabolism")
 
             if rules["spice"]:
                 agent.setSpice(max(agent.getSpice() - agent.getSpiceMetabolism(), 0), "Metabolism")
-
-            if rules["canStarve"]:
-                self.hasStarved(agent)
 
             # Log agent's parameters
             sugarMetabolism += agent.getSugarMetabolism()
@@ -429,9 +421,13 @@ class View:
             else:
                 wealth.append(agent.getSugar() + agent.getSpice())
 
-            # increment age
-            if rules["limitedLifespan"]:
-                agent.setAlive(agent.incAge() < agent.getMaxAge())
+            if rules["canStarve"]:
+                self.hasStarved(agent)
+
+            if agent.isAlive():
+                # increment age
+                if rules["limitedLifespan"]:
+                    agent.setAlive(agent.incAge())
 
             if not agent.isAlive():
                 # free environment
@@ -722,7 +718,6 @@ class View:
 
     def checkAddFig(self):
         while len(self.onGraphs) > len(self.figs):
-            print("Adding fig")
             fig, ax = plt.subplots()
             self.figs.append((fig, ax))
 

@@ -137,7 +137,7 @@ class Environment:
         # we don't use a global list and we re-build the list each time 
         # because init a new agent is much less frequent than updating agent's position (that would require append / remove to the global list)
         (xmin, xmax, ymin, ymax) = location
-        freeLocations = [(i, j) for i, j in product(range(xmin, xmax), range(ymin, ymax)) if not self.grid[i][j][2]]
+        freeLocations = [(i, j) for i, j in product(range(xmin, xmax), range(ymin, ymax)) if not self.grid[i][j][4]]
         # return random free location if exist
         if len(freeLocations) > 0:
             return freeLocations[random.randint(0, len(freeLocations) - 1)]

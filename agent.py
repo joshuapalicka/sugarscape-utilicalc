@@ -213,14 +213,14 @@ class Agent:
 
     def setSugar(self, amount, reason=""):
         previousSugar = self.sugar
-        self.sugar = max(amount, 0 if self.env.hasLimitedLifespan() else 0.01)
+        self.sugar = max(amount, 0 if self.env.hasLimitedLifespan() else .01)
         sugarLog_str = "sugar: " + str(previousSugar) + " -> " + str(self.sugar) + " (" + reason + ")"
         self.sugarLog.append(sugarLog_str)
         self.addLogEntry(sugarLog_str)
 
     def setSpice(self, amount, reason=""):
         previousSpice = self.spice
-        self.spice = max(amount, 0 if self.env.hasLimitedLifespan() else 0.01)
+        self.spice = max(amount, 0 if self.env.hasLimitedLifespan() else .01)
         spiceLog_str = "spice: " + str(previousSpice) + " -> " + str(self.spice) + " (" + reason + ")"
         self.spiceLog.append(spiceLog_str)
         self.addLogEntry(spiceLog_str)
@@ -579,7 +579,7 @@ class Agent:
     def incAge(self):
         self.age += 1
         self.addLogEntry("age: " + str(self.age))
-        return max(self.maxAge - self.age, 0)
+        return self.maxAge > self.age
 
     """
     Concept: Sex
@@ -612,7 +612,8 @@ class Agent:
                 freeLocation = self.findFreeLocationAround(neighbour.x, neighbour.y)
             # then, give birth if a location has been found
             if freeLocation:
-                yield self.createChild(neighbour, freeLocation)
+                if self.isFertile():
+                    yield self.createChild(neighbour, freeLocation)
 
     # Find a free location around x,y (for baby)
     def findFreeLocationAround(self, x, y):
@@ -643,8 +644,9 @@ class Agent:
         genitors[0].setSugar(max(genitors[0].sugar - 0.5 * genitors[0].sugarEndowment, 0), "Create child")
         genitors[1].setSugar(max(genitors[1].sugar - 0.5 * genitors[1].sugarEndowment, 0), "Create child")
 
-        genitors[0].setSpice(max(genitors[0].spice - 0.5 * genitors[0].spiceEndowment, 0), "Create child")
-        genitors[1].setSpice(max(genitors[1].spice - 0.5 * genitors[1].spiceEndowment, 0), "Create child")
+        if self.env.getHasSpice():
+            genitors[0].setSpice(max(genitors[0].spice - 0.5 * genitors[0].spiceEndowment, 0), "Create child")
+            genitors[1].setSpice(max(genitors[1].spice - 0.5 * genitors[1].spiceEndowment, 0), "Create child")
 
         if self.env.getHasDisease():
             childImmuneSystem = ""
@@ -708,10 +710,11 @@ class Agent:
 
     def isFertile(self):
         if self.fertility[0] <= self.age <= self.fertility[1]:
-            if self.sugar >= self.spiceCostForMating and not self.env.getHasSpice():
-                return True
-            elif self.sugar >= self.sugarCostForMating and self.env.getHasSpice():
-                if self.spice >= self.spiceCostForMating:
+            if not self.env.getHasSpice():
+                if self.sugar >= self.sugarCostForMating:
+                    return True
+            else:
+                if self.sugar >= self.sugarCostForMating and self.spice >= self.spiceCostForMating:
                     return True
         return False
 
@@ -751,31 +754,47 @@ class Agent:
         food.append((self.x, self.y))
 
         if not self.env.getHasSpice():
-            for (x, y) in food:
-                location = (x, y)
-                sugarCapacity = self.env.getSugarCapacity((x, y))
-                distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
-                pollution = self.env.getPollutionAtLocation((x, y))
-                locations.append((location, sugarCapacity, distance, pollution))
+            if not self.env.getHasForesight():
+                for (x, y) in food:
+                    location = (x, y)
+                    sugarCapacity = self.env.getSugarCapacity((x, y))
+                    distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
+                    pollution = self.env.getPollutionAtLocation((x, y))
+                    locations.append((location, sugarCapacity, distance, pollution))
 
-            locations.sort(key=lambda x: x[2])
-            if self.env.getHasPollution():
-                best_location = max(locations, key=lambda x: x[1] / (1 + x[3]))
+                locations.sort(key=lambda x: x[2])
+                if self.env.getHasPollution():
+                    best_location = max(locations, key=lambda x: x[1] / (1 + x[3]))
 
+                else:
+                    best_location = max(locations, key=lambda x: x[1])
+
+                best_sugar = best_location[1]
+
+                if self.env.getHasPollution():
+                    self.env.polluteSite(best_location[0], best_sugar, 0)
+
+                if best_location[0] != (self.x, self.y):
+                    move = True
+                    newx, newy = best_location[0]
+
+                self.setSugar(max(self.sugar + best_sugar, 0), "Move")
             else:
-                best_location = max(locations, key=lambda x: x[1])
+                for (x, y) in food:
+                    welfare = self.getWelfare(x=x, y=y)
+                    location = (x, y)
+                    sugarCapacity = self.env.getSugarCapacity((x, y))
+                    distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
+                    locations.append((welfare, location, sugarCapacity, distance))
+                    locations.sort(key=lambda x: x[2])
+                    best_location = max(locations, key=lambda x: x[0])  # gets closest location with highest welfare
+                    if best_location[1] != (self.x, self.y):
+                        move = True
+                        newx, newy = best_location[1]
 
-            best_sugar = best_location[1]
+                    best_sugar = best_location[2]
 
-            if self.env.getHasPollution():
-                self.env.polluteSite(best_location[0], best_sugar, 0)
-
-            if best_location[0] != (self.x, self.y):
-                move = True
-                newx, newy = best_location[0]
-
-            self.setSugar(max(self.sugar + best_sugar, 0), "Move")
-
+                    self.setSugar(max(self.sugar + best_sugar, 0), "Move")
         else:
             for (x, y) in food:
                 welfare = self.getWelfare(x=x, y=y)
@@ -890,6 +909,9 @@ class Agent:
     This is extended further to be a useful function in computing trade and best location to move to.
     """
 
+    def getSugarWelfare(self, x=None, y=None):
+        m1 = self.sugarMetabolism
+
     def getWelfare(self, w1=None, w2=None, x=None, y=None):
         m1 = self.sugarMetabolism
         m2 = self.spiceMetabolism
@@ -918,6 +940,9 @@ class Agent:
             # follows from page 129 and 130 of the book "Growing Artificial Societies" by Epstein and Axtell
             sugarForesight = (w1 - self.foresight * m1) if w1 - self.foresight * m1 > 0 else 0
             spiceForesight = (w2 - self.foresight * m2) if w2 - self.foresight * m2 > 0 else 0
+
+            if not self.env.getHasSpice():
+                return sugarForesight ** (m1 / mt) if w1 > 0 else 0
 
             return sugarForesight ** (m1 / mt) * spiceForesight ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
 
