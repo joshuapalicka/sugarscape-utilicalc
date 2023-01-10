@@ -92,17 +92,17 @@ rules = {
     "moveEat": True,  # move eat and combat need to be exclusive
     "canStarve": True,
     "pollution": False,
-    "tags": True,
+    "tags": False,
     "combat": False,
     "limitedLifespan": False,
     "replacement": False,
     "procreate": True,
     "transmit": False,
-    "spice": False,  # following must be off for pollution
-    "trade": False,
+    "spice": True,  # following must be off for pollution
+    "trade": True,
     "foresight": False,
-    "credit": False,
-    "inheritance": False,
+    "credit": True,
+    "inheritance": True,
     "disease": False
 }
 
