@@ -94,15 +94,15 @@ rules = {
     "pollution": False,
     "tags": False,
     "combat": False,
-    "limitedLifespan": False,
+    "limitedLifespan": True,
     "replacement": False,
     "procreate": True,
     "transmit": False,
-    "spice": True,  # following must be off for pollution
-    "trade": True,
+    "spice": False,  # following must be off for pollution
+    "trade": False,
     "foresight": False,
-    "credit": True,
-    "inheritance": True,
+    "credit": False,
+    "inheritance": False,
     "disease": False
 }
 
@@ -160,9 +160,8 @@ def lightenColorByCapacity(color, amountAtLocation):
     return RGBToHex(tuple(int(c + (255 - c) * (1 - factor)) for c in rgb))
 
 
-def lightenColorByPollution(color, pollution):
-    """ lighten color by factor """
-    factor = pollution / 10
+def lightenColorByX(color, x, maxX):
+    factor = x / maxX
     rgb = hexToRGB(color)
     return RGBToHex(tuple(int(c + (255 - c) * (1 - factor if factor < 1 else 0)) for c in rgb))
 
@@ -247,6 +246,7 @@ class View:
         self.siteSize = screenSize[0] / env.gridWidth
         self.radius = int(self.siteSize * 0.5)
         self.colorByPollution = False
+        self.agentColorScheme = agentColorScheme
         # init env
         self.env = env
         self.season = ""
@@ -278,17 +278,14 @@ class View:
         else:
             return colors["blue"]
 
-    def byMetabolism(self, agent):
-        if agent.getMetabolism() > 2:
-            return colors["red"]
-        else:
-            return colors["blue"]
+    def bySugarMetabolism(self, agent):
+        return lightenColorByX(colors["red"], agent.getSugarMetabolism(), maxAgentMetabolism)
+
+    def bySpiceMetabolism(self, agent):
+        return lightenColorByX(colors["red"], agent.getSpiceMetabolism(), maxAgentMetabolism)
 
     def byVision(self, agent):
-        if agent.getVision() > 3:
-            return colors["red"]
-        else:
-            return colors["blue"]
+        return lightenColorByX(colors["red"], agent.getVision(), maxAgentVision)
 
     def byGroup(self, agent):
         #        if bin(agent.getTags()).count('1') > agent.getTagsLength()>>1:
@@ -297,7 +294,16 @@ class View:
         else:
             return colors["blue"]
 
-    agentColorSchemes = {0: all, 1: bySex, 2: byMetabolism, 3: byVision, 4: byGroup}
+    def byAge(self, agent):
+        return lightenColorByX(colors["red"], agent.getAge(), minmaxAgentAge[1])
+
+    def byWealth(self, agent):
+        return lightenColorByX(colors["red"], agent.getWealth(), 100)
+
+    def byNumberOfDiseases(self, agent):
+        return lightenColorByX(colors["red"], agent.getNumAfflictedDiseases(), numDiseases)
+
+    agentColorSchemes = {0: all, 1: bySex, 2: bySugarMetabolism, 3: byVision, 4: byGroup, 5: byAge, 6: byWealth, 7: bySpiceMetabolism, 8: byNumberOfDiseases}
 
     # remove or replace agent
     def findDistribution(self, tags):
@@ -506,9 +512,9 @@ class View:
 
         # change color of site depending on what's on it - but only if it wasn't already that color (performance optimization)
         if current_agent:
-            fill_color = self.agentColorSchemes[agentColorScheme](self, current_agent)
+            fill_color = self.agentColorSchemes[self.agentColorScheme](self, current_agent)
         elif self.colorByPollution:
-            fill_color = lightenColorByPollution(colors["pollution"], env.getPollutionAtLocation((row, col)))
+            fill_color = lightenColorByX(colors["pollution"], env.getPollutionAtLocation((row, col)), 10)
         else:
             sugarCapacity = env.getSugarCapacity((row, col))
             if not rules["spice"]:
@@ -543,16 +549,42 @@ class View:
             self.grid[row][col] = (
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
 
+    def makeStatsDict(self):
+        self.stats = {}
+        self.stats["iteration"] = self.iteration
+        self.stats["avgpopulation"] = sum(self.population) / len(self.population)
+        self.stats["metabolismMean"] = self.metabolismMean
+        self.stats["visionMean"] = self.visionMean
+        self.stats["gini"] = self.gini
+        if rules["trade"]:
+            self.stats["tradePriceMean"] = self.tradePriceMean
+            self.stats["tradeVolumeMean"] = self.tradeVolumeMean
+        if rules["foresight"]:
+            self.stats["foresightMean"] = self.foresightMean
+        if rules["tags"]:
+            self.stats["proportionBlueTags"] = self.proportionBlueTags
+        if rules["disease"]:
+            self.stats["numInfectedAgents"] = self.numInfectedAgents
+            self.stats["proportionInfectedAgents"] = self.proportionInfectedAgents
+
     def setQuit(self):
         self.quit = True
 
     def togglePause(self):
-        print("Pause: ", self.pause)
         self.pause = not self.pause
+        self.btnPlay.config(text="Play Simulation" if self.pause else "Pause Simulation")
+        print("Pause: ", self.pause)
 
     def toggleUpdateScreen(self):
         print("Update: ", self.updateScreen)
         self.updateScreen = not self.updateScreen
+        self.btnUpdate.config(text="Play Render" if self.pause else "Pause Render")
+
+    def advanceOneStep(self):
+        self.pause = False
+        self.step()
+        self.pause = True
+        self.btnPlay.config(text="Play Simulation")
 
     def toggleColorByPollution(self):
         self.colorByPollution = not self.colorByPollution
@@ -661,52 +693,89 @@ class View:
         ax.set_ylabel("Proportion of Infected Agents")
         self.figs[ax_idx] = (fig, ax)
 
-    def populateOptions(self):  # TODO: Add more graphs and options
+    def populateGraphOptions(self):  # TODO: Add more graphs and options
         # populate graph options depending on the rules
-        self.options = []
+        self.graphOptions = []
 
-        self.options.append("Population")
-        self.options.append("Wealth")
-        self.options.append("Metabolism and Vision")
-        self.options.append("Gini")
+        self.graphOptions.append("Population")
+        self.graphOptions.append("Wealth")
+        self.graphOptions.append("Metabolism and Vision")
+        self.graphOptions.append("Gini")
 
         if rules["tags"]:
-            self.options.append("Tag Proportion")
+            self.graphOptions.append("Tag Proportion")
 
         if rules["trade"]:
-            self.options.append("Trade Price")
-            self.options.append("Trade Volume")
+            self.graphOptions.append("Trade Price")
+            self.graphOptions.append("Trade Volume")
 
         if rules["foresight"]:
-            self.options.append("Mean Foresight")
+            self.graphOptions.append("Mean Foresight")
 
         if rules["disease"]:
-            self.options.append("Proportion Infected")
+            self.graphOptions.append("Proportion Infected")
 
-        self.offGraphs = self.options.copy()
+        self.offGraphs = self.graphOptions.copy()
         self.onGraphs = []
+
+    # 0: all, 1: bySex, 2: byMetabolism, 3: byVision, 4: byGroup
+    def populateAgentViewOptions(self):
+        self.agentViewOptions = []
+        self.agentViewOptions.append("Single Color")
+        self.agentViewOptions.append("By Sex")
+        self.agentViewOptions.append("By Sugar Metabolism")
+        if rules["spice"]:
+            self.agentViewOptions.append("By Spice Metabolism")
+        self.agentViewOptions.append("By Vision")
+        self.agentViewOptions.append("By Group")
+        self.agentViewOptions.append("By Age")
+        self.agentViewOptions.append("By Wealth")
+        if rules["disease"]:
+            self.agentViewOptions.append("By Number of Diseases")
+
+    def updateAgentView(self, *args):
+        selectedView = self.lastSelectedAgentView.get()
+        if selectedView == "Single Color":
+            self.agentColorScheme = 0
+        elif selectedView == "By Sex":
+            self.agentColorScheme = 1
+        elif selectedView == "By Sugar Metabolism":
+            self.agentColorScheme = 2
+        elif selectedView == "By Vision":
+            self.agentColorScheme = 3
+        elif selectedView == "By Group":
+            self.agentColorScheme = 4
+        elif selectedView == "By Age":
+            self.agentColorScheme = 5
+        elif selectedView == "By Wealth":
+            self.agentColorScheme = 6
+        elif selectedView == "By Spice Metabolism":
+            self.agentColorScheme = 7
+        elif selectedView == "By Number of Diseases":
+            self.agentColorScheme = 8
+        self.updateWindow()
 
     def updateGraphList(self, *args):
         new_onGraph = self.lastSelectedGraph.get()
-        idx = self.options.index(new_onGraph)
+        idx = self.graphOptions.index(new_onGraph)
 
         if new_onGraph in self.offGraphs:
             self.offGraphs.remove(new_onGraph)
             self.onGraphs.append(new_onGraph)
-            idx = self.options.index(new_onGraph)
+            idx = self.graphOptions.index(new_onGraph)
             self.graphMenu.delete(idx)
-            self.graphMenu.insert_checkbutton(idx, label=new_onGraph, font='Helvetica 10 bold', onvalue=new_onGraph,
-                                         offvalue=new_onGraph,
-                                         variable=self.lastSelectedGraph,
-                                         command=self.updateGraphList, indicatoron=False)
+            self.graphMenu.insert_checkbutton(idx, label=new_onGraph, font='Helvetica 11 bold', onvalue=new_onGraph,
+                                              offvalue=new_onGraph,
+                                              variable=self.lastSelectedGraph,
+                                              command=self.updateGraphList, indicatoron=False)
         elif new_onGraph in self.onGraphs:
             self.onGraphs.remove(new_onGraph)
             self.offGraphs.append(new_onGraph)
 
             self.graphMenu.delete(idx)
             self.graphMenu.insert_checkbutton(idx, label=new_onGraph, onvalue=new_onGraph, offvalue=new_onGraph,
-                                         variable=self.lastSelectedGraph,
-                                         command=self.updateGraphList, indicatoron=False)
+                                              variable=self.lastSelectedGraph,
+                                              command=self.updateGraphList, indicatoron=False)
         self.updateGraphs()
 
     def handle_close(self, evt):
@@ -743,7 +812,7 @@ class View:
                 self.updateForesightPlot(i)
             elif self.onGraphs[i] == "Proportion Infected":
                 self.updateInfectedPlot(i)
-            #plt.gcf().canvas.manager.window.overrideredirect(1)
+            # plt.gcf().canvas.manager.window.overrideredirect(1)
             self.figs[i][0].canvas.draw()
             self.figs[i][0].canvas.flush_events()
 
@@ -761,7 +830,8 @@ class View:
         self.update = True
         plt.ion()
         self.figs = []
-        self.populateOptions()
+        self.populateGraphOptions()
+        self.populateAgentViewOptions()
         self.window = tk.Tk()
         self.window.title("Sugarscape")
         self.window.geometry("%dx%d" % (self.width + 5, self.height - 5))
@@ -772,36 +842,51 @@ class View:
 
         self.canvas = tk.Canvas(self.window, width=self.width, height=self.height, bg='white')
 
-        self.btnPlay = tk.Button(self.window, text="Play/Pause", command=self.togglePause)
+        self.btnPlay = tk.Button(self.window, text="Pause Simulation", command=self.togglePause)
         self.btnPlay.grid(row=0, column=0, sticky="nsew")
 
-        self.btnUpdate = tk.Button(self.window, text="Update Screen", command=self.toggleUpdateScreen)
+        self.btnUpdate = tk.Button(self.window, text="Pause Render ", command=self.toggleUpdateScreen)
         self.btnUpdate.grid(row=0, column=1, sticky="nsew")
 
+        self.btnStep = tk.Button(self.window, text="Step Forward", command=self.advanceOneStep)
+        self.btnStep.grid(row=0, column=2, sticky="nsew")
+
         self.lastSelectedGraph = tk.StringVar(self.window)
-        self.lastSelectedGraph.set(self.options[0])  # default value
+        self.lastSelectedGraph.set(self.graphOptions[0])  # default value
 
         self.btnGraphMenu = tk.Menubutton(self.window, text="Graphs", relief=tk.RAISED)
         self.graphMenu = tk.Menu(self.btnGraphMenu, tearoff=0)
 
         self.btnGraphMenu.configure(menu=self.graphMenu)
 
-        self.optionNames = self.options.copy()
-        for option in self.options:
+        self.optionNames = self.graphOptions.copy()
+        for option in self.graphOptions:
             self.graphMenu.add_checkbutton(label=option, onvalue=option, offvalue=option,
                                            variable=self.lastSelectedGraph,
                                            command=self.updateGraphList, indicatoron=False)
-        self.btnGraphMenu.grid(row=0, column=2, sticky="nsew")
+        self.btnGraphMenu.grid(row=0, column=3, sticky="nsew")
 
-        self.btnViewMenu = tk.Menubutton(self.window, text="View", relief=tk.RAISED)
-        self.viewMenu = tk.Menu(self.btnViewMenu, tearoff=0)
-        self.btnViewMenu.configure(menu=self.viewMenu)
+        self.btnEnvViewMenu = tk.Menubutton(self.window, text="Env Color",
+                                            relief=tk.RAISED)  # TODO: add more? If so, make like other menus
+        self.viewMenu = tk.Menu(self.btnEnvViewMenu, tearoff=0)
+        self.btnEnvViewMenu.configure(menu=self.viewMenu)
         if rules["pollution"]:
             self.viewMenu.add_checkbutton(label="Color By Pollution", command=self.toggleColorByPollution)
+        self.btnEnvViewMenu.grid(row=0, column=4, sticky="nsew")
 
-        self.btnViewMenu.grid(row=0, column=3, sticky="nsew")
+        self.lastSelectedAgentView = tk.StringVar(self.window)
+        self.lastSelectedAgentView.set(self.agentViewOptions[1])  # default value
 
-        self.canvas.grid(row=1, column=0, columnspan=4, sticky="nsew")
+        self.btnAgentViewMenu = tk.Menubutton(self.window, text="Agent Color", relief=tk.RAISED)
+        self.agentViewMenu = tk.Menu(self.btnAgentViewMenu, tearoff=0)
+        self.btnAgentViewMenu.configure(menu=self.agentViewMenu)
+        for option in self.agentViewOptions:
+            self.agentViewMenu.add_checkbutton(label=option, onvalue=option, offvalue=option,
+                                               variable=self.lastSelectedAgentView,
+                                               command=self.updateAgentView, indicatoron=True)
+        self.btnAgentViewMenu.grid(row=0, column=5, sticky="nsew")
+
+        self.canvas.grid(row=1, column=0, columnspan=6, sticky="nsew")
 
         self.window.bind("<Escape>", lambda x: self.setQuit())
 
@@ -810,32 +895,32 @@ class View:
         self.initialDraw()
         self.updateWindow()
 
+    def step(self):
+        last_time = time.time()
+        # update sugarscape
+        if not self.pause:
+            self.updateGame()
+            self.iteration += 1
+            env.incrementTime()
+
+            # display sugarscape state
+            if self.updateScreen:
+                self.draw()
+            # calculate and display the framerate
+            time_now = time.time()
+            time_since_last_frame = time_now - last_time
+            framerate = int(round(1.0 / time_since_last_frame, 0))
+
+            # display info
+            if self.update:
+                print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
+                      "; Population = ", len(self.agents), " -  press F12 to pause.")
+
+        self.window.update()
+
     def updateWindow(self):
         while not self.quit:
-            last_time = time.time()
-            # update sugarscape
-            if not self.pause:
-                self.updateGame()
-                self.iteration += 1
-                env.incrementTime()
-
-                # display sugarscape state
-                if self.updateScreen:
-                    self.draw()
-
-            self.window.update()
-
-            if not self.pause:
-                # calculate and display the framerate
-                time_now = time.time()
-                time_since_last_frame = time_now - last_time
-                framerate = int(round(1.0 / time_since_last_frame, 0))
-
-                # display info
-                if self.update:
-                    print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
-                          "; Population = ", len(self.agents), " -  press F12 to pause.")
-
+            self.step()
         exit(0)
 
 
