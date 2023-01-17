@@ -92,14 +92,14 @@ rules = {
     "moveEat": True,  # move eat and combat need to be exclusive
     "canStarve": True,
     "pollution": False,
-    "tags": False,
+    "tags": True,
     "combat": False,
     "limitedLifespan": True,
     "replacement": False,
     "procreate": True,
     "transmit": False,
-    "spice": False,  # following must be off for pollution
-    "trade": False,
+    "spice": True,  # following must be off for pollution
+    "trade": True,
     "foresight": False,
     "credit": False,
     "inheritance": False,
@@ -237,8 +237,9 @@ class View:
     # this gets called first
     def __init__(self, screenSize, env, agents):
         # init view
+        self.stats = {}
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
-        self.window, self.canvas = None, None
+        self.mainWindow, self.canvas = None, None
         self.height, self.width = screenSize[0] + 50, screenSize[1]
         self.pause = False
         self.updateScreen = True
@@ -256,13 +257,15 @@ class View:
 
         self.metabolismMean = []
         self.visionMean = []
-        self.proportionBlueTags = []
+        self.percentBlueTags = []
         self.tradePriceMean = []
         self.tradeVolumeMean = []
         self.gini = []
         self.foresightMean = []
         self.numInfectedAgents = []
         self.proportionInfectedAgents = []
+
+        self.statsWindow = None
 
         # init time
         self.iteration = 0
@@ -303,7 +306,8 @@ class View:
     def byNumberOfDiseases(self, agent):
         return lightenColorByX(colors["red"], agent.getNumAfflictedDiseases(), numDiseases)
 
-    agentColorSchemes = {0: all, 1: bySex, 2: bySugarMetabolism, 3: byVision, 4: byGroup, 5: byAge, 6: byWealth, 7: bySpiceMetabolism, 8: byNumberOfDiseases}
+    agentColorSchemes = {0: all, 1: bySex, 2: bySugarMetabolism, 3: byVision, 4: byGroup, 5: byAge, 6: byWealth,
+                         7: bySpiceMetabolism, 8: byNumberOfDiseases}
 
     # remove or replace agent
     def findDistribution(self, tags):
@@ -470,7 +474,7 @@ class View:
             for agent in self.agents:
                 if agent.getTribe() == 0:
                     numBlue += 1
-            self.proportionBlueTags.append(numBlue / float(numAgents) if numAgents > 0 else 0)
+            self.percentBlueTags.append((numBlue / float(numAgents)*100) if numAgents > 0 else 0)
 
         if rules["disease"]:
             numInfected = 0
@@ -506,6 +510,10 @@ class View:
         if self.iteration % graphUpdateFrequency == 0:
             if len(self.onGraphs) > 0:
                 self.updateGraphs()
+
+        self.iteration += 1
+        env.incrementTime()
+        self.updateStatsWindow()
 
     def getFillColor(self, row, col):
         current_agent = env.getAgent((row, col))
@@ -550,22 +558,27 @@ class View:
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
 
     def makeStatsDict(self):
-        self.stats = {}
-        self.stats["iteration"] = self.iteration
-        self.stats["avgpopulation"] = sum(self.population) / len(self.population)
-        self.stats["metabolismMean"] = self.metabolismMean
-        self.stats["visionMean"] = self.visionMean
-        self.stats["gini"] = self.gini
+        round_to = 2
+        self.stats = {
+                      "Iteration": self.iteration,
+                      "Average Population": round((sum(self.population) / len(self.population)) if len(self.agents) > 0 else 0, round_to),
+                      "Metabolism Mean": round(sum(self.metabolismMean) / len(self.metabolismMean), round_to),
+                      "Vision Mean": round(sum(self.visionMean) / len(self.visionMean), round_to),
+                      "Gini Coefficient": round(self.gini[-1], round_to),
+                      "Average Gini": round(sum(self.gini) / len(self.gini), round_to),
+                      "Average Wealth": round((sum(self.getAgentsWealth()) / len(self.agents)) if len(self.agents) > 0 else 0, round_to)
+                      }
+
         if rules["trade"]:
-            self.stats["tradePriceMean"] = self.tradePriceMean
-            self.stats["tradeVolumeMean"] = self.tradeVolumeMean
+            self.stats["Trade Price Mean"] = round(sum(self.tradePriceMean) / len([filter(None, self.tradePriceMean)]), round_to)  # Adding filter(None, ...) to remove 0s from the list
+            self.stats["Trade Volume Mean"] = round(sum(self.tradeVolumeMean) / self.iteration, round_to)
         if rules["foresight"]:
-            self.stats["foresightMean"] = self.foresightMean
+            self.stats["Foresight Mean"] = round(sum(self.foresightMean) / len(self.foresightMean), round_to)
         if rules["tags"]:
-            self.stats["proportionBlueTags"] = self.proportionBlueTags
+            self.stats["Percent Blue Tags"] = round(sum(self.percentBlueTags) / len(self.percentBlueTags), round_to)
         if rules["disease"]:
-            self.stats["numInfectedAgents"] = self.numInfectedAgents
-            self.stats["proportionInfectedAgents"] = self.proportionInfectedAgents
+            self.stats["Number of Infected Agents"] = round(sum(self.numInfectedAgents) / len(self.numInfectedAgents), round_to)
+            self.stats["Proportion of Infected Agents"] = round(sum(self.proportionInfectedAgents) / len(self.proportionInfectedAgents), round_to)
 
     def setQuit(self):
         self.quit = True
@@ -607,6 +620,7 @@ class View:
         ax.set_title("Population time series")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Population")
+        ax.set_ylim(ymin=0)
         self.figs[ax_idx] = (fig, ax)
 
     def updateWealthPlot(self, ax_idx):
@@ -617,6 +631,7 @@ class View:
         ax.set_title("Wealth histogram")
         ax.set_xlabel("Wealth")
         ax.set_ylabel("Number of agents")
+        ax.set_ylim(ymin=0)
         self.figs[ax_idx] = (fig, ax)
 
     def updateMetabolismVisionPlot(self, ax_idx):
@@ -627,29 +642,32 @@ class View:
         ax.set_title("Agents' metabolism and vision mean values")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean value")
+        ax.set_ylim(ymin=0)
         ax.legend()
         self.figs[ax_idx] = (fig, ax)
 
     def updateTagProportionPlot(self, ax_idx):
         fig, ax = self.figs[ax_idx]
         ax.clear()
-        ax.plot(range(len(self.proportionBlueTags)), self.proportionBlueTags)
-        ax.set_title("Proportion of Blue tags to Red tags time series")
+        ax.plot(range(len(self.percentBlueTags)), self.percentBlueTags)
+        ax.set_title("Percent Blue tags to Red tags time series")
         ax.set_xlabel("Iteration")
-        ax.set_ylabel("Proportion of Blue tags")
+        ax.set_ylabel("Percent tags which are Blue")
+        ax.set_ylim(ymin=0, ymax=100)
         self.figs[ax_idx] = (fig, ax)
 
     def updateTradePricePlot(self, ax_idx):
         # create figure
         fig, ax = self.figs[ax_idx]
         ax.clear()
-        index = list(range(len(self.tradePriceMean)))
+        index = list(range(self.iteration))
         data, index = boundData(self.tradePriceMean, index)
         ax.scatter(x=index, y=data, label="price", s=4)
         ax.set_title("Mean trade price")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean price")
         ax.legend()
+        ax.set_ylim(ymin=0)
         self.figs[ax_idx] = (fig, ax)
 
     def updateTradeVolumePlot(self, ax_idx):
@@ -660,6 +678,7 @@ class View:
         ax.set_title("Mean trade volume")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean volume")
+        ax.set_ylim(ymin=0)
         ax.legend()
         self.figs[ax_idx] = (fig, ax)
 
@@ -671,6 +690,7 @@ class View:
         ax.set_title("Gini")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Gini")
+        ax.set_ylim(ymin=0)
         ax.legend()
         self.figs[ax_idx] = (fig, ax)
 
@@ -682,6 +702,7 @@ class View:
         ax.set_title("Mean Foresight time series")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Mean Foresight")
+        ax.set_ylim(ymin=0)
         self.figs[ax_idx] = (fig, ax)
 
     def updateInfectedPlot(self, ax_idx):
@@ -691,6 +712,7 @@ class View:
         ax.set_title("Proportion of Infected Agents to Healthy Agents time series")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Proportion of Infected Agents")
+        ax.set_ylim(ymin=0)
         self.figs[ax_idx] = (fig, ax)
 
     def populateGraphOptions(self):  # TODO: Add more graphs and options
@@ -718,7 +740,6 @@ class View:
         self.offGraphs = self.graphOptions.copy()
         self.onGraphs = []
 
-    # 0: all, 1: bySex, 2: byMetabolism, 3: byVision, 4: byGroup
     def populateAgentViewOptions(self):
         self.agentViewOptions = []
         self.agentViewOptions.append("Single Color")
@@ -821,9 +842,37 @@ class View:
                 fig = self.figs.pop()
                 plt.close(fig[0])
 
-    def on_closing(self):
-        self.window.destroy()
+    def on_mainClosing(self):
+        self.mainWindow.destroy()
         self.quit = True
+
+    def on_statsClosing(self):
+        self.statsWindow.destroy()
+        self.statsWindow = None
+
+    def updateStatsWindow(self):
+        if self.statsWindow:
+            self.makeStatsDict()
+            self.text_box.configure(state='normal')
+            self.text_box.delete("1.0", tk.END)
+            for key, value in self.stats.items():
+                self.text_box.insert(tk.END, key + ": " + str(value) + "\n")
+            self.text_box.configure(state='disabled')
+            self.text_box.pack()
+
+    def createStatsWindow(self):
+        if not self.statsWindow:
+            self.statsWindow = tk.Tk()
+            self.makeStatsDict()
+            self.statsWindow.option_add("*font", "Roboto 14")
+            self.text_box = tk.Text(self.statsWindow, state='disabled', height=(1.2 * len(self.stats.keys())), width=25)
+            self.statsWindow.title("Stats")
+            self.statsWindow.protocol("WM_DELETE_WINDOW", self.on_statsClosing)
+            self.updateStatsWindow()
+
+        else:
+            self.statsWindow.destroy()
+            self.statsWindow = None
 
     # the main game loop
     def createWindow(self):  # TODO: if graph window closed, crash occurs
@@ -832,29 +881,31 @@ class View:
         self.figs = []
         self.populateGraphOptions()
         self.populateAgentViewOptions()
-        self.window = tk.Tk()
-        self.window.title("Sugarscape")
-        self.window.geometry("%dx%d" % (self.width + 5, self.height - 5))
-        self.window.resizable(True, True)
-        self.window.configure(background='white')
+        self.mainWindow = tk.Tk()
+        self.mainWindow.title("Sugarscape")
+        self.mainWindow.geometry("%dx%d" % (self.width + 5, self.height - 5))
+        self.mainWindow.resizable(True, True)
+        self.mainWindow.configure(background='white')
+
+        self.mainWindow.option_add("*font", "Roboto 9")
 
         matplotlib.use("TkAgg")
 
-        self.canvas = tk.Canvas(self.window, width=self.width, height=self.height, bg='white')
+        self.canvas = tk.Canvas(self.mainWindow, width=self.width, height=self.height, bg='white')
 
-        self.btnPlay = tk.Button(self.window, text="Pause Simulation", command=self.togglePause)
+        self.btnPlay = tk.Button(self.mainWindow, text="Pause Simulation", command=self.togglePause)
         self.btnPlay.grid(row=0, column=0, sticky="nsew")
 
-        self.btnUpdate = tk.Button(self.window, text="Pause Render ", command=self.toggleUpdateScreen)
+        self.btnUpdate = tk.Button(self.mainWindow, text="Pause Render ", command=self.toggleUpdateScreen)
         self.btnUpdate.grid(row=0, column=1, sticky="nsew")
 
-        self.btnStep = tk.Button(self.window, text="Step Forward", command=self.advanceOneStep)
+        self.btnStep = tk.Button(self.mainWindow, text="Step Forward", command=self.advanceOneStep, relief=tk.RAISED)
         self.btnStep.grid(row=0, column=2, sticky="nsew")
 
-        self.lastSelectedGraph = tk.StringVar(self.window)
+        self.lastSelectedGraph = tk.StringVar(self.mainWindow)
         self.lastSelectedGraph.set(self.graphOptions[0])  # default value
 
-        self.btnGraphMenu = tk.Menubutton(self.window, text="Graphs", relief=tk.RAISED)
+        self.btnGraphMenu = tk.Menubutton(self.mainWindow, text="Graphs", relief=tk.RAISED)
         self.graphMenu = tk.Menu(self.btnGraphMenu, tearoff=0)
 
         self.btnGraphMenu.configure(menu=self.graphMenu)
@@ -866,31 +917,39 @@ class View:
                                            command=self.updateGraphList, indicatoron=False)
         self.btnGraphMenu.grid(row=0, column=3, sticky="nsew")
 
-        self.btnEnvViewMenu = tk.Menubutton(self.window, text="Env Color",
+        self.btnEnvViewMenu = tk.Menubutton(self.mainWindow, text="Env Color",
                                             relief=tk.RAISED)  # TODO: add more? If so, make like other menus
-        self.viewMenu = tk.Menu(self.btnEnvViewMenu, tearoff=0)
-        self.btnEnvViewMenu.configure(menu=self.viewMenu)
-        if rules["pollution"]:
-            self.viewMenu.add_checkbutton(label="Color By Pollution", command=self.toggleColorByPollution)
-        self.btnEnvViewMenu.grid(row=0, column=4, sticky="nsew")
 
-        self.lastSelectedAgentView = tk.StringVar(self.window)
+        self.viewMenu = tk.Menu(self.btnEnvViewMenu, tearoff=0)
+
+        self.btnEnvViewMenu.configure(menu=self.viewMenu)
+        self.btnEnvViewMenu.grid(row=0, column=4, sticky="nsew")
+        self.envViewMenu = tk.Menu(self.viewMenu, tearoff=0)
+        if rules["pollution"]:
+            self.envViewMenu.add_checkbutton(label="Color By Pollution", command=self.toggleColorByPollution)
+
+        self.lastSelectedAgentView = tk.StringVar(self.mainWindow)
         self.lastSelectedAgentView.set(self.agentViewOptions[1])  # default value
 
-        self.btnAgentViewMenu = tk.Menubutton(self.window, text="Agent Color", relief=tk.RAISED)
+        self.btnAgentViewMenu = tk.Menubutton(self.mainWindow, text="Agent Color", relief=tk.RAISED)
         self.agentViewMenu = tk.Menu(self.btnAgentViewMenu, tearoff=0)
         self.btnAgentViewMenu.configure(menu=self.agentViewMenu)
         for option in self.agentViewOptions:
             self.agentViewMenu.add_checkbutton(label=option, onvalue=option, offvalue=option,
                                                variable=self.lastSelectedAgentView,
                                                command=self.updateAgentView, indicatoron=True)
-        self.btnAgentViewMenu.grid(row=0, column=5, sticky="nsew")
+
+        self.viewMenu.add_cascade(label="Agent Color", menu=self.agentViewMenu)
+        self.viewMenu.add_cascade(label="Environment Color", menu=self.envViewMenu)
+
+        self.btnStats = tk.Button(self.mainWindow, text="Show Stats", command=self.createStatsWindow)
+        self.btnStats.grid(row=0, column=5, sticky="nsew")
 
         self.canvas.grid(row=1, column=0, columnspan=6, sticky="nsew")
 
-        self.window.bind("<Escape>", lambda x: self.setQuit())
+        self.mainWindow.bind("<Escape>", lambda x: self.setQuit())
 
-        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.mainWindow.protocol("WM_DELETE_WINDOW", self.on_mainClosing)
 
         self.initialDraw()
         self.updateWindow()
@@ -900,8 +959,6 @@ class View:
         # update sugarscape
         if not self.pause:
             self.updateGame()
-            self.iteration += 1
-            env.incrementTime()
 
             # display sugarscape state
             if self.updateScreen:
@@ -916,7 +973,7 @@ class View:
                 print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
                       "; Population = ", len(self.agents), " -  press F12 to pause.")
 
-        self.window.update()
+        self.mainWindow.update()
 
     def updateWindow(self):
         while not self.quit:
