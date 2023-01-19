@@ -7,6 +7,7 @@ import math
 import random
 import sys
 from itertools import product
+import felicific_calculus as fc
 
 """
   Creates a loan from other agent to self
@@ -349,11 +350,11 @@ class Agent:
 
     # build a list of available food locations
     def getFood(self):
-        food = [(x, self.y) for x in range(self.x - self.vision, self.x + self.vision + 2)
+        food = [(x, self.y) for x in range(self.x - self.vision, self.x + self.vision + 1)
                 if self.env.isLocationValid((x, self.y))
                 and self.env.isLocationFree((x, self.y))]
 
-        food.extend([(self.x, y) for y in range(self.y - self.vision, self.y + self.vision + 2)
+        food.extend([(self.x, y) for y in range(self.y - self.vision, self.y + self.vision + 1)
                      if self.env.isLocationValid((self.x, y))
                      and self.env.isLocationFree((self.x, y))])
         return food
@@ -371,15 +372,28 @@ class Agent:
                               and y != self.y])
         return neighbourhood
 
+    def getVisionNeighbourhood(self):
+        neighbourhood = [self.env.getAgent((x, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
+                         if self.env.isLocationValid((x, self.y))
+                         and not self.env.isLocationFree((x, self.y))
+                         and x != self.x]
+
+        neighbourhood.extend(
+            [self.env.getAgent((self.x, y)) for y in range(self.y - self.vision, self.y + self.vision + 1)
+             if self.env.isLocationValid((self.x, y))
+             and not self.env.isLocationFree((self.x, y))
+             and y != self.y])
+        return neighbourhood
+
     # build a list of possible preys around
     def getPreys(self):
-        preys = [self.env.getAgent((x, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 2)
+        preys = [self.env.getAgent((x, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
                  if self.env.isLocationValid((x, self.y))
                  and not self.env.isLocationFree((x, self.y))
                  and self.sugar > self.env.getAgent((x, self.y)).getSugar()
                  and self.env.getAgent((x, self.y)).getTribe() != self.tribe]
 
-        preys.extend([self.env.getAgent((self.x, y)) for y in range(self.y - self.vision, self.y + self.vision + 2)
+        preys.extend([self.env.getAgent((self.x, y)) for y in range(self.y - self.vision, self.y + self.vision + 1)
                       if self.env.isLocationValid((self.x, y))
                       and not self.env.isLocationFree((self.x, y))
                       and self.sugar > self.env.getAgent((self.x, y)).getSugar()
@@ -815,6 +829,68 @@ class Agent:
     def getManhattanDistance(self, x, y):
         return abs(self.x - x) + abs(self.y - y)
 
+    def getDaysToDeath(self):
+        return self.sugar // self.sugarMetabolism
+
+    def utilicalcMove(self):
+        # find best food location
+        self.previousWealth = self.getWealth()
+
+        # build a list of available food locations
+        food = self.getFood()
+
+        # randomize food locations
+        random.shuffle(food)
+
+        food.append((self.x, self.y))
+
+        # list of agents
+        agents = self.getVisionNeighbourhood()
+        agents.append(self)
+        decisions = fc.EvaluateDecisions()
+        for potentialMove in food:
+            currentDecision = fc.Decision()
+            sugarCapacity = self.env.getSugarCapacity(potentialMove)
+            for agent in agents:
+                daysToDeath = agent.getDaysToDeath()
+                if daysToDeath == 0:
+                    daysToDeath = 1
+                currentDecision.createAgent(
+                    isPleasure=(agent == self),  # potential move is good only for me
+                    intensity=(1 / daysToDeath),  # based off of how much they need sugar
+                    duration= sugarCapacity / agent.sugarMetabolism,
+                    certainty=1 / (self.vision * 4),  # certainty is 1/(vision * 4). We can only base this off of our vision,
+                                                      # so we assume that each move will happen with equal probability
+                    propinquity=1,  # happening now
+                    fecundity=0,
+                    purity=0,
+                    multiplier=1
+                )
+            decisions.addDecision(str(potentialMove[0]) + "," + str(potentialMove[1]), currentDecision)
+
+        # get the best move
+        bestMoves = decisions.getListOfDecisionsWithHighestValue()
+        if str(self.x) + "," + str(self.y) in bestMoves:
+            newx = self.x
+            newy = self.y
+            self.addLogEntry(str("move: " + "same location"))
+        else:
+            bestMove = random.choice(bestMoves)
+            newx, newy = bestMove.split(",")
+            newx = int(newx)
+            newy = int(newy)
+            self.env.setAgent((self.x, self.y), None)
+            self.env.setAgent((newx, newy), self)
+            previousLocation = (self.x, self.y)
+            self.x = newx
+            self.y = newy
+            self.addLogEntry(str("move: " + str(previousLocation) + " -> " + str((newx, newy))))
+
+        best_sugar = self.env.getSugarCapacity((newx, newy))
+        self.setSugar(max(self.sugar + best_sugar, 0), "Move")
+
+        self.env.setSugarCapacity((self.x, self.y), 0)
+
     """
     Concept: Trade
 
@@ -891,9 +967,6 @@ class Agent:
 
     This is extended further to be a useful function in computing trade and best location to move to.
     """
-
-    def getSugarWelfare(self, x=None, y=None):
-        m1 = self.sugarMetabolism
 
     def getWelfare(self, w1=None, w2=None, x=None, y=None):
         m1 = self.sugarMetabolism

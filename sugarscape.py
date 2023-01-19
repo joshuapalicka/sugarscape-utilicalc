@@ -89,21 +89,22 @@ numStartingDiseases = 2
 rules = {
     "grow": True,
     "seasons": False,
-    "moveEat": True,  # move eat and combat need to be exclusive
+    "moveEat": False,  # move eat and combat need to be exclusive
     "canStarve": True,
     "pollution": False,
-    "tags": True,
+    "tags": False,
     "combat": False,
-    "limitedLifespan": True,
+    "limitedLifespan": False,
     "replacement": False,
-    "procreate": True,
+    "procreate": False,
     "transmit": False,
-    "spice": True,  # following must be off for pollution
-    "trade": True,
+    "spice": False,  # following must be off for pollution
+    "trade": False,
     "foresight": False,
     "credit": False,
     "inheritance": False,
-    "disease": False
+    "disease": False,
+    "utilicalc": True
 }
 
 if rules["tags"]:
@@ -130,7 +131,7 @@ distributions = [
 boundGraphData = True
 numDeviations = 2  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
 
-isRandom = True
+isRandom = False
 combatAlpha = 1000000
 
 if not isRandom:
@@ -160,7 +161,11 @@ def lightenColorByCapacity(color, amountAtLocation):
     return RGBToHex(tuple(int(c + (255 - c) * (1 - factor)) for c in rgb))
 
 
+# lightens colors by a factor: x / maxX (safe to use with 0 x)
 def lightenColorByX(color, x, maxX):
+    if maxX == 0:
+        raise ValueError("maxX cannot be 0")
+
     factor = x / maxX
     rgb = hexToRGB(color)
     return RGBToHex(tuple(int(c + (255 - c) * (1 - factor if factor < 1 else 0)) for c in rgb))
@@ -380,6 +385,9 @@ class View:
             if rules["moveEat"]:
                 agent.move()
 
+            if rules["utilicalc"]:
+                agent.utilicalcMove()
+
             # COMBAT
             if rules["combat"]:
                 killed = agent.combat(combatAlpha)
@@ -439,7 +447,7 @@ class View:
                 if rules["limitedLifespan"]:
                     agent.setAlive(agent.incAge())
 
-            if not agent.isAlive():
+            else:
                 # free environment
                 self.env.setAgent(agent.getLocation(), None)
                 # remove or replace agent
