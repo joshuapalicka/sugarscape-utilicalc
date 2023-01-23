@@ -1,10 +1,11 @@
-'''
+"""
 Created on 2010-04-17
 
 @author: rv
 
 Updated/extended by joshuapalicka
-'''
+"""
+
 import math
 import random
 import time
@@ -26,7 +27,7 @@ gridSize = 50, 50
 colorBackground = 250, 250, 250
 graphUpdateFrequency = 5  # graphs update every graphUpdateFrequency frames
 
-# display colors
+# display colors - can be changed here and will update in the GUI
 colors = {
     "sugar": "#F2FA00",
     "spice": "#9B4722",
@@ -89,14 +90,14 @@ numStartingDiseases = 2
 rules = {
     "grow": True,
     "seasons": False,
-    "moveEat": False,  # move eat and combat need to be exclusive
+    "moveEat": True,  # move eat and combat need to be exclusive
     "canStarve": True,
     "pollution": False,
     "tags": False,
     "combat": False,
-    "limitedLifespan": False,
+    "limitedLifespan": True,
     "replacement": False,
-    "procreate": False,
+    "procreate": True,
     "transmit": False,
     "spice": False,  # following must be off for pollution
     "trade": False,
@@ -104,7 +105,7 @@ rules = {
     "credit": False,
     "inheritance": False,
     "disease": False,
-    "utilicalc": True
+    "utilicalc": False
 }
 
 if rules["tags"]:
@@ -123,12 +124,13 @@ if rules["pollution"]:
 if rules["foresight"]:
     foresightRange = (0, 10)
 
-distributions = [
-    # if rules["tags"] == True then these distributions will be used fully, otherwise, just the first item from each tuple will be used as the number of total agents
-    (125, tags0, (0, 50, 0, 50)),  # blues
-    (125, tags1, (0, 50, 0, 50))]  # reds
+totalAgents = 125, 125  # number of blue agents, number of red agents
 
-boundGraphData = True
+distributions = [
+    (totalAgents[0], tags0, (0, 50, 0, 50)),  # blues
+    (totalAgents[1], tags1, (0, 50, 0, 50))]  # reds
+
+boundGraphData = True  # if False, graphs will not be scaled to numDeviations std devs from the mean
 numDeviations = 2  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
 
 isRandom = False
@@ -142,6 +144,7 @@ Global functions
 '''
 
 
+# Changes a hex color to RGB, as tkinter uses hex colors, but it's easier for me to work with RGB
 def hexToRGB(colorHex):
     """ #FFFFFF -> (255, 255, 255) """
     colorHex = colorHex.lstrip('#')
@@ -149,11 +152,14 @@ def hexToRGB(colorHex):
     return tuple(int(colorHex[i:i + colorHexLen // 3], 16) for i in range(0, colorHexLen, colorHexLen // 3))
 
 
+# Changes RGB back to hex
 def RGBToHex(rgb):
     """ (255, 255, 255) -> #FFFFFF """
     return '#%02x%02x%02x' % rgb
 
 
+# Lighten a hex color by a factor. The factor is the ratio of the max amount of sugar or spice the
+# simulation allows, to the current number at the site
 def lightenColorByCapacity(color, amountAtLocation):
     """ lighten color by factor """
     factor = amountAtLocation / maxCapacity
@@ -161,11 +167,10 @@ def lightenColorByCapacity(color, amountAtLocation):
     return RGBToHex(tuple(int(c + (255 - c) * (1 - factor)) for c in rgb))
 
 
-# lightens colors by a factor: x / maxX (safe to use with 0 x)
+# Lightens a hex color by a factor: x / maxX (safe to use with x=0)
 def lightenColorByX(color, x, maxX):
     if maxX == 0:
         raise ValueError("maxX cannot be 0")
-
     factor = x / maxX
     rgb = hexToRGB(color)
     return RGBToHex(tuple(int(c + (255 - c) * (1 - factor if factor < 1 else 0)) for c in rgb))
@@ -197,10 +202,10 @@ def initAgent(agent, tags, distribution):
     return True
 
 
+# Calculates the gini coefficient of a list of agent wealth values. Used to measure wealth inequality
 def calculateGini(wealth):
     """ Calculate the Gini coefficient of a list of wealth values """
     # based on https://planspace.org/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
-
     wealth = sorted(wealth)
     height, area = 0, 0
     for value in wealth:
@@ -216,6 +221,7 @@ def getStandardDeviation(data):
     return math.sqrt(variance)
 
 
+# Uses boundGraphData and numDeviations variables to set the graph bounds
 def boundData(data, index):
     if boundGraphData:
         if len(data) > 0:
@@ -232,6 +238,75 @@ def boundData(data, index):
     return data
 
 
+def hasStarved(agent):
+    if agent.getSugar() <= 0.1:
+        agent.addLogEntry("Starved due to lack of sugar")
+        # free environment
+        agent.setAlive(False)
+    if rules["spice"]:
+        if agent.getSpice() <= 0.1:
+            agent.addLogEntry("Starved due to lack of spice")
+            agent.setAlive(False)
+
+
+# Following functions are used to update the view. One of these functions (at a time) determines the color of each agent
+# The function that is used is determined by which Agent Color is selected in the GUI
+def all(agent):
+    return colors["red"]
+
+
+def bySex(agent):
+    if agent.getSex() == female:
+        return colors["pink"]
+    else:
+        return colors["blue"]
+
+
+def bySugarMetabolism(agent):
+    return lightenColorByX(colors["red"], agent.getSugarMetabolism(), maxAgentMetabolism)
+
+
+def bySpiceMetabolism(agent):
+    return lightenColorByX(colors["red"], agent.getSpiceMetabolism(), maxAgentMetabolism)
+
+
+def byVision(agent):
+    return lightenColorByX(colors["red"], agent.getVision(), maxAgentVision)
+
+
+def byGroup(agent):
+    #        if bin(agent.getTags()).count('1') > agent.getTagsLength()>>1:
+    if agent.getTribe() == 1:
+        return colors["red"]
+    else:
+        return colors["blue"]
+
+
+def byAge(agent):
+    return lightenColorByX(colors["red"], agent.getAge(), minmaxAgentAge[1])
+
+
+def byWealth(agent):
+    return lightenColorByX(colors["red"], agent.getWealth(), 100)
+
+
+def byNumberOfDiseases(agent):
+    return lightenColorByX(colors["red"], agent.getNumAfflictedDiseases(), numDiseases)
+
+
+# determine how to distribute agents on the screen
+def findDistribution(tags):
+    getTribe = lambda x, y: round(float(bin(x).count('1')) / float(y))
+    tribe = getTribe(tags, tagsLength)
+    for (n, t, d) in distributions:
+        if t is not None and getTribe(t, tagsLength) == tribe:
+            # found a distribution for tags
+            return d
+    else:
+        # or return best guess
+        return d
+
+
 ''' 
 View Class
 '''
@@ -241,7 +316,9 @@ class View:
 
     # this gets called first
     def __init__(self, screenSize, env, agents):
+
         # init view
+        self.update = None
         self.stats = {}
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
         self.mainWindow, self.canvas = None, None
@@ -253,13 +330,16 @@ class View:
         self.radius = int(self.siteSize * 0.5)
         self.colorByPollution = False
         self.agentColorScheme = agentColorScheme
+
         # init env
         self.env = env
         self.season = ""
+
         # init agents population
         self.agents = agents
         self.population = []
 
+        # init graph data vars
         self.metabolismMean = []
         self.visionMean = []
         self.percentBlueTags = []
@@ -274,59 +354,32 @@ class View:
 
         # init time
         self.iteration = 0
+
         self.grid = [[(None, None) for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
 
-    # display agent switch case (dictionary)
-    def all(self, agent):
-        return colors["red"]
+        # init tkinter GUI items and variables
+        self.btnStats = None
+        self.agentViewMenu = None
+        self.btnAgentViewMenu = None
+        self.lastSelectedAgentView = None
+        self.envViewMenu = None
+        self.viewMenu = None
+        self.btnEnvViewMenu = None
+        self.optionNames = None
+        self.graphMenu = None
+        self.btnGraphMenu = None
+        self.lastSelectedGraph = None
+        self.btnStep = None
+        self.btnUpdate = None
+        self.btnPlay = None
+        self.text_box = None
+        self.agentViewOptions = None
 
-    def bySex(self, agent):
-        if agent.getSex() == female:
-            return colors["pink"]
-        else:
-            return colors["blue"]
-
-    def bySugarMetabolism(self, agent):
-        return lightenColorByX(colors["red"], agent.getSugarMetabolism(), maxAgentMetabolism)
-
-    def bySpiceMetabolism(self, agent):
-        return lightenColorByX(colors["red"], agent.getSpiceMetabolism(), maxAgentMetabolism)
-
-    def byVision(self, agent):
-        return lightenColorByX(colors["red"], agent.getVision(), maxAgentVision)
-
-    def byGroup(self, agent):
-        #        if bin(agent.getTags()).count('1') > agent.getTagsLength()>>1:
-        if agent.getTribe() == 1:
-            return colors["red"]
-        else:
-            return colors["blue"]
-
-    def byAge(self, agent):
-        return lightenColorByX(colors["red"], agent.getAge(), minmaxAgentAge[1])
-
-    def byWealth(self, agent):
-        return lightenColorByX(colors["red"], agent.getWealth(), 100)
-
-    def byNumberOfDiseases(self, agent):
-        return lightenColorByX(colors["red"], agent.getNumAfflictedDiseases(), numDiseases)
-
+    # Maps the agent color scheme number to which function determines the color of each agent
     agentColorSchemes = {0: all, 1: bySex, 2: bySugarMetabolism, 3: byVision, 4: byGroup, 5: byAge, 6: byWealth,
                          7: bySpiceMetabolism, 8: byNumberOfDiseases}
 
-    # remove or replace agent
-    def findDistribution(self, tags):
-        getTribe = lambda x, y: round(float(bin(x).count('1')) / float(y))
-        tribe = getTribe(tags, tagsLength)
-        for (n, t, d) in distributions:
-            if t is not None and getTribe(t, tagsLength) == tribe:
-                # found a distribution for tags
-                return d
-        else:
-            # or return best guess
-            return d
-
-    # replace or remove agent
+    # replace or remove agent, and determine if it's necessary to split wealth to children
     def removeAgent(self, agent):
         if rules["inheritance"]:
             children = list(agent.getChildren())
@@ -348,24 +401,14 @@ class View:
             # replace with agent of same tribe
             tags = agent.getTags()
             newAgent = Agent(env)
-            if initAgent(newAgent, tags, self.findDistribution(tags)):
+            if initAgent(newAgent, tags, findDistribution(tags)):
                 self.env.setAgent(newAgent.getLocation(), newAgent)
                 self.agents.append(newAgent)
 
         if agent in self.agents:
             self.agents.remove(agent)
 
-    def hasStarved(self, agent):
-        if agent.getSugar() <= 0.1:
-            agent.addLogEntry("Starved due to lack of sugar")
-            # free environment
-            agent.setAlive(False)
-        if rules["spice"]:
-            if agent.getSpice() <= 0.1:
-                agent.addLogEntry("Starved due to lack of spice")
-                agent.setAlive(False)
-
-    #  put game update code here
+    # Following function runs once per iteration, and is the main driver of action on the Sugarscape
     def updateGame(self):
         # for agents' logs
         sugarMetabolism = 0
@@ -440,7 +483,7 @@ class View:
                 wealth.append(agent.getSugar() + agent.getSpice())
 
             if rules["canStarve"]:
-                self.hasStarved(agent)
+                hasStarved(agent)
 
             if agent.isAlive():
                 # increment age
@@ -482,7 +525,7 @@ class View:
             for agent in self.agents:
                 if agent.getTribe() == 0:
                     numBlue += 1
-            self.percentBlueTags.append((numBlue / float(numAgents)*100) if numAgents > 0 else 0)
+            self.percentBlueTags.append((numBlue / float(numAgents) * 100) if numAgents > 0 else 0)
 
         if rules["disease"]:
             numInfected = 0
@@ -515,6 +558,7 @@ class View:
             if self.iteration >= diffusionStartTime and self.iteration % pDiffusionRate == 0:
                 self.env.spreadPollution()
 
+        # updates graphs if there are any and the iteration is a multiple of the update rate
         if self.iteration % graphUpdateFrequency == 0:
             if len(self.onGraphs) > 0:
                 self.updateGraphs()
@@ -523,36 +567,38 @@ class View:
         env.incrementTime()
         self.updateStatsWindow()
 
+    # Determines which color each square should be
     def getFillColor(self, row, col):
         current_agent = env.getAgent((row, col))
 
-        # change color of site depending on what's on it - but only if it wasn't already that color (performance optimization)
+        # change color of site depending on what's on it
         if current_agent:
-            fill_color = self.agentColorSchemes[self.agentColorScheme](self, current_agent)
+            fillColor = self.agentColorSchemes[self.agentColorScheme](current_agent)
         elif self.colorByPollution:
-            fill_color = lightenColorByX(colors["pollution"], env.getPollutionAtLocation((row, col)), 10)
+            fillColor = lightenColorByX(colors["pollution"], env.getPollutionAtLocation((row, col)), 10)
         else:
             sugarCapacity = env.getSugarCapacity((row, col))
             if not rules["spice"]:
-                fill_color = lightenColorByCapacity(colors["sugar"], sugarCapacity)
+                fillColor = lightenColorByCapacity(colors["sugar"], sugarCapacity)
             else:
                 spiceCapacity = env.getSpiceCapacity((row, col))
                 if sugarCapacity >= spiceCapacity:
-                    fill_color = lightenColorByCapacity(colors["sugar"], sugarCapacity)
+                    fillColor = lightenColorByCapacity(colors["sugar"], sugarCapacity)
                 elif sugarCapacity < spiceCapacity:
-                    fill_color = lightenColorByCapacity(colors["spice"], spiceCapacity)
+                    fillColor = lightenColorByCapacity(colors["spice"], spiceCapacity)
                 else:
-                    fill_color = "white"
-        return fill_color
+                    fillColor = "white"
+        return fillColor
 
     def draw(self):
         for row, col in product(range(len(self.grid)), range(len(self.grid[0]))):
-            fill_color = self.getFillColor(row, col)
-            if self.grid[row][col][1] != fill_color:
-                self.canvas.itemconfig(self.grid[row][col][0], fill=fill_color)
-                self.grid[row][col] = (self.grid[row][col][0], fill_color)
+            fillColor = self.getFillColor(row, col)
+            if self.grid[row][col][
+                1] != fillColor:  # only change fill color if the site wasn't already that color (performance optimization)
+                self.canvas.itemconfig(self.grid[row][col][0], fill=fillColor)
+                self.grid[row][col] = (self.grid[row][col][0], fillColor)
 
-    # put drawing code here
+    # creates tkinter rectangle object for each square in the environment
     def initialDraw(self):
         # display Sugarscape
         for row, col in product(range(env.gridHeight), range(env.gridWidth)):
@@ -561,32 +607,38 @@ class View:
             x2 = 5 + (.5 * self.siteSize) + row * self.siteSize + (.5 * self.siteSize)
             y2 = 5 + (.5 * self.siteSize) + col * self.siteSize + (.5 * self.siteSize)
 
-            fill_color = self.getFillColor(row, col)
+            fillColor = self.getFillColor(row, col)
             self.grid[row][col] = (
-                self.canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#C0C0C0"), fill_color)
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill=fillColor, outline="#C0C0C0"), fillColor)
 
+    # Make the stats dictionary for the stats window
     def makeStatsDict(self):
         round_to = 2
         self.stats = {
-                      "Iteration": self.iteration,
-                      "Average Population": round((sum(self.population) / len(self.population)) if len(self.agents) > 0 else 0, round_to),
-                      "Metabolism Mean": round(sum(self.metabolismMean) / len(self.metabolismMean), round_to),
-                      "Vision Mean": round(sum(self.visionMean) / len(self.visionMean), round_to),
-                      "Gini Coefficient": round(self.gini[-1], round_to),
-                      "Average Gini": round(sum(self.gini) / len(self.gini), round_to),
-                      "Average Wealth": round((sum(self.getAgentsWealth()) / len(self.agents)) if len(self.agents) > 0 else 0, round_to)
-                      }
+            "Iteration": self.iteration,
+            "Average Population": round((sum(self.population) / len(self.population)) if len(self.agents) > 0 else 0,
+                                        round_to),
+            "Metabolism Mean": round(sum(self.metabolismMean) / len(self.metabolismMean), round_to),
+            "Vision Mean": round(sum(self.visionMean) / len(self.visionMean), round_to),
+            "Gini Coefficient": round(self.gini[-1], round_to),
+            "Average Gini": round(sum(self.gini) / len(self.gini), round_to),
+            "Average Wealth": round((sum(self.getAgentsWealth()) / len(self.agents)) if len(self.agents) > 0 else 0,
+                                    round_to)
+        }
 
         if rules["trade"]:
-            self.stats["Trade Price Mean"] = round(sum(self.tradePriceMean) / len([filter(None, self.tradePriceMean)]), round_to)  # Adding filter(None, ...) to remove 0s from the list
+            self.stats["Trade Price Mean"] = round(sum(self.tradePriceMean) / len([filter(None, self.tradePriceMean)]),
+                                                   round_to)  # Adding filter(None, ...) to remove 0s from the list
             self.stats["Trade Volume Mean"] = round(sum(self.tradeVolumeMean) / self.iteration, round_to)
         if rules["foresight"]:
             self.stats["Foresight Mean"] = round(sum(self.foresightMean) / len(self.foresightMean), round_to)
         if rules["tags"]:
             self.stats["Percent Blue Tags"] = round(sum(self.percentBlueTags) / len(self.percentBlueTags), round_to)
         if rules["disease"]:
-            self.stats["Number of Infected Agents"] = round(sum(self.numInfectedAgents) / len(self.numInfectedAgents), round_to)
-            self.stats["Proportion of Infected Agents"] = round(sum(self.proportionInfectedAgents) / len(self.proportionInfectedAgents), round_to)
+            self.stats["Number of Infected Agents"] = round(sum(self.numInfectedAgents) / len(self.numInfectedAgents),
+                                                            round_to)
+            self.stats["Proportion of Infected Agents"] = round(
+                sum(self.proportionInfectedAgents) / len(self.proportionInfectedAgents), round_to)
 
     def setQuit(self):
         self.quit = True
@@ -964,11 +1016,11 @@ class View:
 
     def step(self):
         last_time = time.time()
-        # update sugarscape
+        # update Sugarscape
         if not self.pause:
             self.updateGame()
 
-            # display sugarscape state
+            # display Sugarscape state
             if self.updateScreen:
                 self.draw()
             # calculate and display the framerate
@@ -1035,21 +1087,21 @@ if __name__ == '__main__':
         env.setLoanDuration(loanDuration)
 
     # create a list of agents and place them in env
-    agents = []
-    for (numAgents, tags, distribution) in distributions:
-        for _ in range(numAgents):
-            agent = Agent(env)
-            if initAgent(agent, tags, distribution):
-                env.setAgent(agent.getLocation(), agent)
+    agentList = []
+    for (nAgents, tags, distribution) in distributions:
+        for _ in range(nAgents):
+            newAgent = Agent(env)
+            if initAgent(newAgent, tags, distribution):
+                env.setAgent(newAgent.getLocation(), newAgent)
 
                 if rules["disease"]:
-                    agent.createImmuneSystem()
+                    newAgent.createImmuneSystem()
                     for _ in range(numStartingDiseases):
-                        agent.addRandomDisease()
-                agents.append(agent)
+                        newAgent.addRandomDisease()
+                agentList.append(newAgent)
 
     # Create a view with an env and a list of agents in env
-    view = View(screenSize, env, agents)
+    view = View(screenSize, env, agentList)
 
     # iterate
     view.createWindow()

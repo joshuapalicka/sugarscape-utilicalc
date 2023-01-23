@@ -7,6 +7,7 @@ import math
 import random
 import sys
 from itertools import product
+
 import felicific_calculus as fc
 
 """
@@ -20,6 +21,7 @@ def createNewLoan(lender, borrower, sugar, spice, time=None, transfer=True):
     hasSpice = borrower.env.getHasSpice()
     lender.lent.append((lender, borrower, sugar, spice, time))
 
+    # transfer means that goods are transferred from lender to borrower. It is False when the loan is created from another loan's default
     if transfer:
         lender.setSugar(lender.sugar - sugar, "loan")
         if hasSpice:
@@ -102,6 +104,10 @@ def updateHelper(disease, immuneSubstr):  # updates immuneSubstr to match diseas
             else:
                 immuneSubstr[i] = '0'
                 return str(immuneSubstr)
+
+
+def getDistance(x1, y1, x2, y2):
+    return int(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
 
 
 class Agent:
@@ -212,22 +218,22 @@ class Agent:
     def getSugar(self):
         return self.sugar
 
+    def getSpice(self):
+        return self.spice
+
     def setSugar(self, amount, reason=""):
         previousSugar = self.sugar
-        self.sugar = max(amount, 0 if self.env.hasLimitedLifespan() else .01)
+        self.sugar = max(amount, 0 if self.env.getHasLimitedLifespan() else .01)
         sugarLog_str = "sugar: " + str(previousSugar) + " -> " + str(self.sugar) + " (" + reason + ")"
         self.sugarLog.append(sugarLog_str)
         self.addLogEntry(sugarLog_str)
 
     def setSpice(self, amount, reason=""):
         previousSpice = self.spice
-        self.spice = max(amount, 0 if self.env.hasLimitedLifespan() else .01)
+        self.spice = max(amount, 0 if self.env.getHasLimitedLifespan() else .01)
         spiceLog_str = "spice: " + str(previousSpice) + " -> " + str(self.spice) + " (" + reason + ")"
         self.spiceLog.append(spiceLog_str)
         self.addLogEntry(spiceLog_str)
-
-    def getSpice(self):
-        return self.spice
 
     def setAge(self, maxAge):
         self.maxAge = maxAge
@@ -342,7 +348,7 @@ class Agent:
 
     def getRandomImmuneSystem(self):
         for i in range(self.env.getImmuneSystemLength()):
-            self.immuneSystem += str(random.randint(0, 1))  # TODO: test to see if this uses the same random seed
+            self.immuneSystem += str(random.randint(0, 1))
 
     ''' 
     build common lists
@@ -357,6 +363,8 @@ class Agent:
         food.extend([(self.x, y) for y in range(self.y - self.vision, self.y + self.vision + 1)
                      if self.env.isLocationValid((self.x, y))
                      and self.env.isLocationFree((self.x, y))])
+        random.shuffle(food)
+
         return food
 
     # build a list of possible neighbours for in neighbourhood
@@ -370,8 +378,12 @@ class Agent:
                               if self.env.isLocationValid((self.x, y))
                               and not self.env.isLocationFree((self.x, y))
                               and y != self.y])
+
+        random.shuffle(neighbourhood)
+
         return neighbourhood
 
+    # build a list of neighbours within agent's vision range
     def getVisionNeighbourhood(self):
         neighbourhood = [self.env.getAgent((x, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
                          if self.env.isLocationValid((x, self.y))
@@ -383,6 +395,9 @@ class Agent:
              if self.env.isLocationValid((self.x, y))
              and not self.env.isLocationFree((self.x, y))
              and y != self.y])
+
+        random.shuffle(neighbourhood)
+
         return neighbourhood
 
     # build a list of possible preys around
@@ -398,6 +413,9 @@ class Agent:
                       and not self.env.isLocationFree((self.x, y))
                       and self.sugar > self.env.getAgent((self.x, y)).getSugar()
                       and self.env.getAgent((self.x, y)).getTribe() != self.tribe])
+
+        random.shuffle(preys)
+
         return preys
 
     ''' 
@@ -453,17 +471,18 @@ class Agent:
             elif maxLendSugar >= sugarNeeded and maxLendSpice >= spiceNeeded:
                 createNewLoan(neighbour, self, sugarNeeded, spiceNeeded)
 
+    #  get the amount that an agent can lend, according to the book's rules
     def getPotentialLendAmt(self):
         if self.age > self.fertility[1]:
             return .5 * self.sugar, .5 * self.spice
 
         if self.age > self.fertility[0]:
             excessSugar = max(0, self.sugar - self.sugarCostForMating)
-            if self.env.getHasSpice():
+            if not self.env.getHasSpice():
+                return excessSugar, 0
+            else:
                 excessSpice = max(0, self.spice - self.spiceCostForMating)
                 return excessSugar, excessSpice
-            else:
-                return excessSugar, 0
         return 0, 0
 
     def checkLoans(self):
@@ -485,23 +504,25 @@ class Agent:
                 self.borrowed.remove(loan)
                 if not lender.isAlive():
                     continue
+
+                #  If their loan duration is up, they must pay back the loan unless they cant afford it
                 cantPay = False
-                mysugar, myspice = self.getSugar(), self.getSpice()
+                mySugar, mySpice = self.getSugar(), self.getSpice()
                 if self.getSugar() - sugarOwed < 0:
                     cantPay = True
                     self.addLogEntry("Agent in debt!")
-                    lender.setSugar(lender.getSugar() + mysugar * .5, "repayment, agent in debt")
-                    self.setSugar(mysugar * .5, "debt")
-                    sugarObligations += mysugar * .5
-                    sugarOwed -= mysugar * .5
+                    lender.setSugar(lender.getSugar() + mySugar * .5, "repayment, agent in debt")
+                    self.setSugar(mySugar * .5, "debt")
+                    sugarObligations += mySugar * .5
+                    sugarOwed -= mySugar * .5
 
                 if self.env.getHasSpice() and self.getSpice() - spiceOwed < 0:
                     cantPay = True
                     self.addLogEntry("Agent in debt!")
                     lender.setSugar(lender.getSpice() + self.getSpice() * .5, "repayment, agent in debt")
                     self.setSugar(self.getSpice() * .5, "debt")
-                    spiceObligations += myspice * .5
-                    spiceOwed -= myspice * .5
+                    spiceObligations += mySpice * .5
+                    spiceOwed -= mySpice * .5
 
                 if cantPay:
                     createNewLoan(lender, self, sugarOwed, spiceOwed, time=self.env.getLoanDuration(), transfer=False)
@@ -610,9 +631,6 @@ class Agent:
     def mate(self):
         # build a list of possible partners in neighbourhood
         neighbourhood = self.getNeighbourhood()
-
-        # randomize
-        random.shuffle(neighbourhood)
 
         # mate with (all) possible partners
         for neighbour in neighbourhood:
@@ -762,8 +780,6 @@ class Agent:
         # build a list of available food locations
         food = self.getFood()
 
-        # randomize food locations
-        random.shuffle(food)
         locations = []
         food.append((self.x, self.y))
 
@@ -852,39 +868,39 @@ class Agent:
             currentDecision = fc.Decision()
             sugarCapacity = self.env.getSugarCapacity(potentialMove)
             for agent in agents:
-                daysToDeath = agent.getDaysToDeath()
-                if daysToDeath == 0:
-                    daysToDeath = 1
-                currentDecision.createAgent(
-                    isPleasure=(agent == self),  # potential move is good only for me
-                    intensity=(1 / daysToDeath),  # based off of how much they need sugar
-                    duration= sugarCapacity / agent.sugarMetabolism,
-                    certainty=1 / (self.vision * 4),  # certainty is 1/(vision * 4). We can only base this off of our vision,
-                                                      # so we assume that each move will happen with equal probability
-                    propinquity=1,  # happening now
-                    fecundity=0,
-                    purity=0,
-                    multiplier=1
-                )
+                agentX, agentY = agent.getLocation()
+                if agentX == potentialMove[0] or agentY == potentialMove[
+                    1]:  # if agent is not on same plane, ignore for this food location
+                    daysToDeath = agent.getDaysToDeath()
+                    if daysToDeath == 0:
+                        daysToDeath = .1
+
+                    currentDecision.createAgent(
+                        isPleasure=(agent == self),  # potential move is good only for me
+                        intensity=(1 / daysToDeath),  # based off of how much they need sugar
+                        duration=sugarCapacity / agent.sugarMetabolism,  # how long will this satisfy me for?
+                        certainty=1 if getDistance(agentX, agentY, potentialMove[0],
+                                                   potentialMove[1]) <= agent.getVision() else 0,
+                        # certainty is their distance from the food.
+                        propinquity=1,  # happening now
+                        fecundity=0,
+                        purity=0,
+                        multiplier=1
+                    )
             decisions.addDecision(str(potentialMove[0]) + "," + str(potentialMove[1]), currentDecision)
 
         # get the best move
         bestMoves = decisions.getListOfDecisionsWithHighestValue()
-        if str(self.x) + "," + str(self.y) in bestMoves:
-            newx = self.x
-            newy = self.y
-            self.addLogEntry(str("move: " + "same location"))
-        else:
-            bestMove = random.choice(bestMoves)
-            newx, newy = bestMove.split(",")
-            newx = int(newx)
-            newy = int(newy)
-            self.env.setAgent((self.x, self.y), None)
-            self.env.setAgent((newx, newy), self)
-            previousLocation = (self.x, self.y)
-            self.x = newx
-            self.y = newy
-            self.addLogEntry(str("move: " + str(previousLocation) + " -> " + str((newx, newy))))
+        bestMove = random.choice(bestMoves)
+        newx, newy = bestMove.split(",")
+        newx = int(newx)
+        newy = int(newy)
+        self.env.setAgent((self.x, self.y), None)
+        self.env.setAgent((newx, newy), self)
+        previousLocation = (self.x, self.y)
+        self.x = newx
+        self.y = newy
+        self.addLogEntry(str("move: " + str(previousLocation) + " -> " + str((newx, newy))))
 
         best_sugar = self.env.getSugarCapacity((newx, newy))
         self.setSugar(max(self.sugar + best_sugar, 0), "Move")
