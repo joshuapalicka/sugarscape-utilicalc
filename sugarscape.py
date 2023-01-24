@@ -318,6 +318,7 @@ class View:
     def __init__(self, screenSize, env, agents):
 
         # init view
+
         self.update = None
         self.stats = {}
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
@@ -358,6 +359,7 @@ class View:
         self.grid = [[(None, None) for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
 
         # init tkinter GUI items and variables
+        self.figs = None
         self.btnStats = None
         self.agentViewMenu = None
         self.btnAgentViewMenu = None
@@ -864,7 +866,6 @@ class View:
         plt.close(fig[0])
         self.onGraphs.remove(fig[1])
         self.offGraphs.append(fig[1])
-        # self.updateGraphList()
 
     def checkAddFig(self):
         while len(self.onGraphs) > len(self.figs):

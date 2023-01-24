@@ -869,8 +869,7 @@ class Agent:
             sugarCapacity = self.env.getSugarCapacity(potentialMove)
             for agent in agents:
                 agentX, agentY = agent.getLocation()
-                if agentX == potentialMove[0] or agentY == potentialMove[
-                    1]:  # if agent is not on same plane, ignore for this food location
+                if agentX == potentialMove[0] or agentY == potentialMove[1]:  # if agent is not on same plane, ignore for this food location
                     daysToDeath = agent.getDaysToDeath()
                     if daysToDeath == 0:
                         daysToDeath = .1
@@ -881,7 +880,7 @@ class Agent:
                         duration=sugarCapacity / agent.sugarMetabolism,  # how long will this satisfy me for?
                         certainty=1 if getDistance(agentX, agentY, potentialMove[0],
                                                    potentialMove[1]) <= agent.getVision() else 0,
-                        # certainty is their distance from the food.
+                        # certainty is their distance from the food. 0 if they cannot see the food.
                         propinquity=1,  # happening now
                         fecundity=0,
                         purity=0,
@@ -1013,9 +1012,6 @@ class Agent:
             sugarForesight = (w1 - self.foresight * m1) if w1 - self.foresight * m1 > 0 else 0
             spiceForesight = (w2 - self.foresight * m2) if w2 - self.foresight * m2 > 0 else 0
 
-            if not self.env.getHasSpice():
-                return sugarForesight ** (m1 / mt) if w1 > 0 else 0
-
             return sugarForesight ** (m1 / mt) * spiceForesight ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
 
         return w1 ** (m1 / mt) * w2 ** (m2 / mt) if w1 > 0 and w2 > 0 else 0
@@ -1040,7 +1036,7 @@ class Agent:
 
     Gather the resources at the site plus the minimum of a and the occupant's wealth, if the site was occupied
 
-    If the site was occupuied, then the former occupant is considered "killed" -- permanently removed from play"
+    If the site was occupied, then the former occupant is considered "killed" -- permanently removed from play"
     """
 
     def combat(self, alpha):
