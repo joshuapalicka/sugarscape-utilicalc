@@ -579,11 +579,11 @@ class View:
         elif self.colorByPollution:
             fillColor = lightenColorByX(colors["pollution"], env.getPollutionAtLocation((row, col)), 10)
         else:
-            sugarCapacity = env.getSugarCapacity((row, col))
+            sugarCapacity = env.getSugarAmt((row, col))
             if not rules["spice"]:
                 fillColor = lightenColorByCapacity(colors["sugar"], sugarCapacity)
             else:
-                spiceCapacity = env.getSpiceCapacity((row, col))
+                spiceCapacity = env.getSpiceAmt((row, col))
                 if sugarCapacity >= spiceCapacity:
                     fillColor = lightenColorByCapacity(colors["sugar"], sugarCapacity)
                 elif sugarCapacity < spiceCapacity:

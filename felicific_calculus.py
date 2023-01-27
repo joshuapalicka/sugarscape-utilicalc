@@ -47,64 +47,64 @@ class Agent:
     duration = the duration of the action
     certainty = the certainty of the action
     propinquity = the propinquity (nearness in time) of the action (1/propinquity^0.1) - arbitrary but needs to decay over time
-    multiplier = the multiplier for the number of people affected equally by the action
+    extent = the extent for the number of people affected equally by the action
 
     Optional Variables:
     f_intensity = the intensity of the 2nd order consequence of the same type
     f_duration = the duration of the 2nd order consequence of the same type
     f_propinquity = the propinquity (nearness in time) of the 2nd order consequence of the same type
-    f_multiplier = the multiplier for the number of people affected equally by the 2nd order consequence of the same type
+    f_extent = the extent for the number of people affected equally by the 2nd order consequence of the same type
 
     p_intensity = the intensity of the 2nd order consequence of the opposite type
     p_duration = the duration of the 2nd order consequence of the opposite type
     p_propinquity = the propinquity (nearness in time) of the 2nd order consequence of the opposite type
-    p_multiplier = the multiplier for the number of people affected equally by the 2nd order consequence of the opposite type
+    p_extent = the extent for the number of people affected equally by the 2nd order consequence of the opposite type
 
     Methods:
         getMoralValue() returns the moral value of the action
     """
 
-    def __init__(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, multiplier,
-                 f_intensity=0, f_duration=0, f_propinquity=0, f_multiplier=0,
+    def __init__(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+                 f_intensity=0, f_duration=0, f_propinquity=0, f_extent=0,
                  p_intensity=0, p_duration=0, p_propinquity=0,
-                 p_multiplier=0):
+                 p_extent=0):
 
         self.consequences = []
-        self.addConsequence(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, multiplier,
-                            f_intensity, f_duration, f_propinquity, f_multiplier, p_intensity, p_duration,
+        self.addConsequence(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+                            f_intensity, f_duration, f_propinquity, f_extent, p_intensity, p_duration,
                             p_propinquity,
-                            p_multiplier)
+                            p_extent)
 
     def getConsequences(self):
         return self.consequences
 
-    def addConsequence(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, multiplier,
-                       f_intensity=0, f_duration=0, f_propinquity=0, f_multiplier=0,
+    def addConsequence(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+                       f_intensity=0, f_duration=0, f_propinquity=0, f_extent=0,
                        p_intensity=0, p_duration=0, p_propinquity=0,
-                       p_multiplier=0):
+                       p_extent=0):
 
         adjusted_propinquity = 1 / math.pow(propinquity, .1) if propinquity != 0 else 1
 
         if isPleasure:
-            self.consequences.append(certainty * (intensity * duration * adjusted_propinquity * multiplier))
+            self.consequences.append(certainty * (intensity * duration * adjusted_propinquity * extent))
         else:
-            self.consequences.append(-1 * certainty * (intensity * duration * adjusted_propinquity * multiplier))
+            self.consequences.append(-1 * certainty * (intensity * duration * adjusted_propinquity * extent))
 
         # The following lines are used to add 2nd order consequences.
         if isPleasure:
             f_adjusted_propinquity = 1 / math.pow(f_propinquity, .1) if f_propinquity != 0 else 1
             if fecundity != 0:
-                self.consequences.append(fecundity * (f_intensity * f_duration * f_adjusted_propinquity * f_multiplier))
+                self.consequences.append(fecundity * (f_intensity * f_duration * f_adjusted_propinquity * f_extent))
             if purity != 0:
-                self.consequences.append(-1 * purity * (p_intensity * p_duration * f_adjusted_propinquity * p_multiplier))
+                self.consequences.append(-1 * purity * (p_intensity * p_duration * f_adjusted_propinquity * p_extent))
 
         else:
             p_adjusted_propinquity = 1 / math.pow(p_propinquity, .1) if p_propinquity != 0 else 1
             if fecundity != 0:
                 self.consequences.append(
-                    -1 * fecundity * (f_intensity * f_duration * p_adjusted_propinquity * f_multiplier))
+                    -1 * fecundity * (f_intensity * f_duration * p_adjusted_propinquity * f_extent))
             if purity != 0:
-                self.consequences.append(purity * (p_intensity * p_duration * p_adjusted_propinquity * p_multiplier))
+                self.consequences.append(purity * (p_intensity * p_duration * p_adjusted_propinquity * p_extent))
 
     def getMoralValue(self):
         return sum(self.consequences)
@@ -132,22 +132,22 @@ class Decision:
         self.selfInterestScale = selfInterestScale
         self.agents = []
 
-    def createAgent(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, multiplier,
-                    f_intensity=0, f_duration=0, f_propinquity=0, f_multiplier=0,
-                    p_intensity=0, p_duration=0, p_propinquity=0, p_multiplier=0, isDecisionMaker=False):
+    def createAgent(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+                    f_intensity=0, f_duration=0, f_propinquity=0, f_extent=0,
+                    p_intensity=0, p_duration=0, p_propinquity=0, p_extent=0, isDecisionMaker=False):
 
         # if we have a decision maker, we need to note that
         if isDecisionMaker:
             self.agents.append(
-                (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, multiplier,
-                       f_intensity, f_duration, f_propinquity, f_multiplier,
-                       p_intensity, p_duration, p_propinquity, p_multiplier), True))
+                (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+                       f_intensity, f_duration, f_propinquity, f_extent,
+                       p_intensity, p_duration, p_propinquity, p_extent), True))
 
         else:
             self.agents.append(
-                (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, multiplier,
-                       f_intensity, f_duration, f_propinquity, f_multiplier,
-                       p_intensity, p_duration, p_propinquity, p_multiplier), False))
+                (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+                       f_intensity, f_duration, f_propinquity, f_extent,
+                       p_intensity, p_duration, p_propinquity, p_extent), False))
 
     def getAgents(self):
         return self.agents

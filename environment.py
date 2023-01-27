@@ -23,10 +23,10 @@ class Environment:
 
         """
         Grid is indexed by: 
-        [i][j][0] = sugar capacity (amt currently stored), 
-        [i][j][1] = spice capacity (amt currently stored), 
-        [i][j][2] = maxSugarCapacity, 
-        [i][j][3] = maxSpiceCapacity, 
+        [i][j][0] = sugar amount (amt currently stored), 
+        [i][j][1] = spice amount (amt currently stored), 
+        [i][j][2] = max sugar capacity, 
+        [i][j][3] = max spice capacity, 
         [i][j][4] = agent, 
         [i][j][5] = amount of pollution 
         """
@@ -60,7 +60,7 @@ class Environment:
     def getHasTags(self):
         return self.hasTags
 
-    def setSugarCapacity(self, location, value):
+    def setSugarAmt(self, location, value):
         (i, j) = location
         self.grid[i][j][0] = value
 
@@ -68,19 +68,19 @@ class Environment:
         (i, j) = location
         self.grid[i][j][1] = value
 
-    def getSugarCapacity(self, location):
+    def getSugarAmt(self, location):
         (i, j) = location
         return int(self.grid[i][j][0])
 
-    def getSpiceCapacity(self, location):
+    def getSpiceAmt(self, location):
         (i, j) = location
         return int(self.grid[i][j][1])
 
-    def decCapacity(self, location, value):
+    def decSugarAmt(self, location, value):
         (i, j) = location
         self.grid[i][j][0] = max(0, self.grid[i][j][2] - value)
 
-    def decSpiceCapacity(self, location, value):
+    def decSpiceAmt(self, location, value):
         (i, j) = location
         self.grid[i][j][1] = max(0, self.grid[i][j][3] - value)
 

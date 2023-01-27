@@ -786,7 +786,7 @@ class Agent:
         if not self.env.getHasSpice():
             for (x, y) in food:
                 location = (x, y)
-                sugarCapacity = self.env.getSugarCapacity((x, y))
+                sugarCapacity = self.env.getSugarAmt((x, y))
                 distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
                 pollution = self.env.getPollutionAtLocation((x, y))
                 locations.append((location, sugarCapacity, distance, pollution))
@@ -812,8 +812,8 @@ class Agent:
             for (x, y) in food:
                 welfare = self.getWelfare(x=x, y=y)
                 location = (x, y)
-                sugarCapacity = self.env.getSugarCapacity((x, y))
-                spiceCapacity = self.env.getSpiceCapacity((x, y))
+                sugarCapacity = self.env.getSugarAmt((x, y))
+                spiceCapacity = self.env.getSpiceAmt((x, y))
                 distance = self.getManhattanDistance(x, y)  # Manhattan distance enough due to no diagonal
                 locations.append((welfare, location, sugarCapacity, spiceCapacity, distance))
 
@@ -839,7 +839,7 @@ class Agent:
             self.y = newy
             self.addLogEntry(str("move: " + str(previousLocation) + " -> " + str((newx, newy))))
 
-        self.env.setSugarCapacity((self.x, self.y), 0)
+        self.env.setSugarAmt((self.x, self.y), 0)
         self.env.setSpiceCapacity((self.x, self.y), 0)
 
     def getManhattanDistance(self, x, y):
@@ -866,7 +866,7 @@ class Agent:
         decisions = fc.EvaluateDecisions()
         for potentialMove in food:
             currentDecision = fc.Decision()
-            sugarCapacity = self.env.getSugarCapacity(potentialMove)
+            sugarCapacity = self.env.getSugarAmt(potentialMove)
             for agent in agents:
                 agentX, agentY = agent.getLocation()
                 if agentX == potentialMove[0] or agentY == potentialMove[1]:  # if agent is not on same plane, ignore for this food location
@@ -879,12 +879,11 @@ class Agent:
                         intensity=(1 / daysToDeath),  # based off of how much they need sugar
                         duration=sugarCapacity / agent.sugarMetabolism,  # how long will this satisfy me for?
                         certainty=1 if getDistance(agentX, agentY, potentialMove[0],
-                                                   potentialMove[1]) <= agent.getVision() else 0,
-                        # certainty is their distance from the food. 0 if they cannot see the food.
+                                                   potentialMove[1]) <= agent.getVision() else 0, # certainty is their distance from the food. 0 if they cannot see the food.
                         propinquity=1,  # happening now
                         fecundity=0,
                         purity=0,
-                        multiplier=1
+                        extent=1
                     )
             decisions.addDecision(str(potentialMove[0]) + "," + str(potentialMove[1]), currentDecision)
 
@@ -901,10 +900,10 @@ class Agent:
         self.y = newy
         self.addLogEntry(str("move: " + str(previousLocation) + " -> " + str((newx, newy))))
 
-        best_sugar = self.env.getSugarCapacity((newx, newy))
+        best_sugar = self.env.getSugarAmt((newx, newy))
         self.setSugar(max(self.sugar + best_sugar, 0), "Move")
 
-        self.env.setSugarCapacity((self.x, self.y), 0)
+        self.env.setSugarAmt((self.x, self.y), 0)
 
     """
     Concept: Trade
@@ -992,8 +991,8 @@ class Agent:
             w2 = self.spice
 
         if x and y:
-            x1 = self.env.getSugarCapacity((x, y))
-            x2 = self.env.getSpiceCapacity((x, y))
+            x1 = self.env.getSugarAmt((x, y))
+            x2 = self.env.getSpiceAmt((x, y))
 
             w1 = self.sugar + x1
             w2 = self.spice + x2
