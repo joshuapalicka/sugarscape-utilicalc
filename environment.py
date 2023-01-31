@@ -54,6 +54,8 @@ class Environment:
         self.pollutionStartTime = 0
         self.diffusionStartTime = 0
 
+        self.selfInterestScale = None
+
     def getHasSpice(self):
         return self.hasSpice
 
@@ -64,7 +66,7 @@ class Environment:
         (i, j) = location
         self.grid[i][j][0] = value
 
-    def setSpiceCapacity(self, location, value):
+    def setSpiceAmt(self, location, value):
         (i, j) = location
         self.grid[i][j][1] = value
 
@@ -228,6 +230,25 @@ class Environment:
 
     def getHasLimitedLifespan(self):
         return self.hasLimitedLifespan
+
+    def setSelfInterestScale(self, selfInterestScale):
+        self.selfInterestScale = selfInterestScale
+
+    def getSelfInterestScale(self):
+        return self.selfInterestScale
+
+    def getNeighborhood(self, x, y):
+        neighbourhood = [self.getAgent((newX, y)) for newX in range(x - 1, x + 2)
+                         if self.isLocationValid((newX, y))
+                         and not self.isLocationFree((newX, y))]
+
+        neighbourhood.extend([self.getAgent((x, newY)) for newY in range(y - 1, y + 2)
+                              if self.isLocationValid((x, newY))
+                              and not self.isLocationFree((x, newY))])
+
+        random.shuffle(neighbourhood)
+
+        return neighbourhood
 
     """
         Concept: Pollution

@@ -136,18 +136,10 @@ class Decision:
                     f_intensity=0, f_duration=0, f_propinquity=0, f_extent=0,
                     p_intensity=0, p_duration=0, p_propinquity=0, p_extent=0, isDecisionMaker=False):
 
-        # if we have a decision maker, we need to note that
-        if isDecisionMaker:
-            self.agents.append(
-                (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
-                       f_intensity, f_duration, f_propinquity, f_extent,
-                       p_intensity, p_duration, p_propinquity, p_extent), True))
-
-        else:
-            self.agents.append(
-                (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
-                       f_intensity, f_duration, f_propinquity, f_extent,
-                       p_intensity, p_duration, p_propinquity, p_extent), False))
+        self.agents.append(
+            (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+                   f_intensity, f_duration, f_propinquity, f_extent,
+                   p_intensity, p_duration, p_propinquity, p_extent), True if isDecisionMaker else False))
 
     def getAgents(self):
         return self.agents
@@ -170,7 +162,7 @@ class Decision:
             else:
                 totalMoralValue += agent[0].getMoralValue()
 
-        return round(totalMoralValue, 2)
+        return totalMoralValue
 
     def getNegativeMoralValue(self):
         totalMoralValue = 0
@@ -184,7 +176,7 @@ class Decision:
             else:
                 totalMoralValue += agent[0].getNegativeMoralValue()
 
-        return round(totalMoralValue, 2)
+        return totalMoralValue
 
     def hasDecisionMaker(self):
         for agent in self.agents:
@@ -223,7 +215,8 @@ class EvaluateDecisions:
         if self.setSelfInterestScale is not None:
             decision.setSelfInterestScale(self.selfInterestScale)
         self.decisions.append((decisionName, decision))
-        random.shuffle(self.decisions)  # we randomize this so that, with equal moral values, we choose a random decision
+        random.shuffle(
+            self.decisions)  # we randomize this so that, with equal moral values, we choose a random decision
 
     def setSelfInterestScale(self, selfInterestScale):
         if selfInterestScale > 1 or selfInterestScale < 0:
@@ -232,11 +225,6 @@ class EvaluateDecisions:
         for decision in self.decisions:
             if not decision[1].hasDecisionMaker():
                 print("Warning: Decision " + decision[0] + " does not have a decision maker.")
-
-        if selfInterestScale == 0:
-            print("Set self interest to Altruistic")
-        elif selfInterestScale == 1:
-            print("Set self interest to Egoistic")
 
         self.selfInterestScale = selfInterestScale
         for decision in self.decisions:
@@ -281,5 +269,13 @@ class EvaluateDecisions:
         listOfDecisions = []
         for decision in self.decisions:
             if decision[1].getMoralValue() == bestDecision.getMoralValue():
+                listOfDecisions.append(decision[0])
+        return listOfDecisions
+
+    def getListOfDecisionsWithLeastNegativeValue(self):
+        bestDecisionName, bestDecision = max(self.decisions, key=lambda x: x[1].getNegativeMoralValue())
+        listOfDecisions = []
+        for decision in self.decisions:
+            if decision[1].getNegativeMoralValue() == bestDecision.getNegativeMoralValue():
                 listOfDecisions.append(decision[0])
         return listOfDecisions

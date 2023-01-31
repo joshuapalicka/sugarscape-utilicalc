@@ -84,8 +84,10 @@ loanDuration = 10
 # There exists 2^(diseaseLength) unique diseases and 2^immuneSystemSize unique immune systems
 immuneSystemSize = 10  # number of bits per immune system
 diseaseLength = 3  # number of bits per disease
-numDiseases = 5
+numDiseases = 10
 numStartingDiseases = 2
+
+selfInterestScale = None
 
 rules = {
     "grow": True,
@@ -104,7 +106,7 @@ rules = {
     "foresight": False,
     "credit": False,
     "inheritance": False,
-    "disease": False,
+    "disease": True,
     "utilicalc": False
 }
 
@@ -212,6 +214,8 @@ def calculateGini(wealth):
         height += value
         area += height - value / 2
     fair_area = height * len(wealth) / 2
+    if fair_area == 0:
+        return 1
     return (fair_area - area) / fair_area
 
 
@@ -577,7 +581,7 @@ class View:
         if current_agent:
             fillColor = self.agentColorSchemes[self.agentColorScheme](current_agent)
         elif self.colorByPollution:
-            fillColor = lightenColorByX(colors["pollution"], env.getPollutionAtLocation((row, col)), 10)
+            fillColor = lightenColorByX(colors["pollution"], env.getPollutionAtLocation((row, col)), 20)
         else:
             sugarCapacity = env.getSugarAmt((row, col))
             if not rules["spice"]:
@@ -1031,8 +1035,11 @@ class View:
 
             # display info
             if self.update:
-                print("Iteration = ", self.iteration, "; fps = ", framerate, "; Seasons (N,S) = ", self.season,
-                      "; Population = ", len(self.agents), " -  press F12 to pause.")
+                if rules["seasons"]:
+                    print("Iteration = ", self.iteration, "| fps = ", framerate, "| Seasons (N,S) = ", self.season,
+                          "| Population = ", len(self.agents))
+                else:
+                    print("Iteration = ", self.iteration, "| fps = ", framerate, "| Population = ", len(self.agents))
 
         self.mainWindow.update()
 
@@ -1100,6 +1107,9 @@ if __name__ == '__main__':
                     for _ in range(numStartingDiseases):
                         newAgent.addRandomDisease()
                 agentList.append(newAgent)
+
+    if rules["utilicalc"]:
+        env.setSelfInterestScale(selfInterestScale)
 
     # Create a view with an env and a list of agents in env
     view = View(screenSize, env, agentList)
