@@ -39,6 +39,8 @@ class Environment:
         self.hasPollution = False
         self.hasForesight = False
         self.hasLimitedLifespan = False
+        self.hasCombat = False
+        self.hasCredit = False
 
         self.diseases = []
         self.immuneSystemSize = None
@@ -61,6 +63,18 @@ class Environment:
 
     def getHasTags(self):
         return self.hasTags
+
+    def getHasCombat(self):
+        return self.hasCombat
+
+    def setHasCombat(self, hasCombat):
+        self.hasCombat = hasCombat
+
+    def getHasCredit(self):
+        return self.hasCredit
+
+    def setHasCredit(self, hasCredit):
+        self.hasCredit = hasCredit
 
     def setSugarAmt(self, location, value):
         (i, j) = location

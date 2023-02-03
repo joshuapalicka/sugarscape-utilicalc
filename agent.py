@@ -100,10 +100,10 @@ def updateHelper(disease, immuneSubstr):  # updates immuneSubstr to match diseas
         if immuneSubstr[i] != disease[i]:
             if immuneSubstr[i] == '0':
                 immuneSubstr[i] = '1'
-                return str(immuneSubstr)
+                return "".join(immuneSubstr)
             else:
                 immuneSubstr[i] = '0'
-                return str(immuneSubstr)
+                return "".join(immuneSubstr)
 
 
 def getDistance(x1, y1, x2, y2):
@@ -854,8 +854,66 @@ class Agent:
         else:
             return min(self.sugar // self.sugarMetabolism, self.spice // self.spiceMetabolism)
 
+    def utilicalcPollution(self, agent, pMove, fcVars):
+        pollution = self.env.getPollutionAtLocation(pMove)
+        sugarCapacity = self.env.getSugarAmt(pMove)
+        fcVars["duration"] -= (sugarCapacity / (1 + pollution)) / agent.sugarMetabolism,  # sugar / 1 + pollution
+
+    def utilicalcCombat(self, agent, pMove, fcVars):
+        pass
+
+    def utilicalcSpice(self, agent, pMove, fcVars):
+        sugarCapacity = self.env.getSugarAmt(pMove)
+        spiceCapacity = self.env.getSpiceAmt(pMove)
+
+        fcVars["intensity"] = agent.getWelfare(x=pMove[0],
+                                               y=pMove[1])  # based off of how much they need sugar/spice
+        fcVars["duration"] = (sugarCapacity / agent.sugarMetabolism) + (
+                spiceCapacity / agent.spiceMetabolism)  # sugar + spice
+
+    def utilicalcCredit(self, agent, pMove, fcVars):
+        pass
+
+    def utilicalcDisease(self, agent, pMove, fcVars):
+        agentX, agentY = agent.x, agent.y
+
+        if agent != self:
+            # if agents are nearby the potential move location, we must account for potential sickness
+            if getDistance(agentX, agentY, pMove[0], pMove[1]) == 1 and self.isDiseased():
+                fcVars["fecundity"] = 1
+                fcVars["f_intensity"] = 1 / agent.getSugarMetabolism()
+                fcVars["f_duration"] = self.env.getDiseaseLength()
+                fcVars["f_propinquity"] = 1
+                fcVars["f_extent"] = 1
+
+        else:
+            numDiseasedNearby = 0
+            foodNeighbors = self.env.getNeighborhood(pMove[0], pMove[1])
+            for foodNeighbor in foodNeighbors:
+                if foodNeighbor != self and (
+                        foodNeighbor.x == agent.x or foodNeighbor.y == agent.y):
+                    numDiseasedNearby += foodNeighbor.isDiseased()
+
+            fcVars["purity"] = 1
+            fcVars["p_intensity"] = numDiseasedNearby / agent.getSugarMetabolism()  # if none are diseased, 0
+            fcVars["p_duration"] = self.env.getDiseaseLength()
+            fcVars["p_propinquity"] = 1
+            fcVars["p_extent"] = 1
+
+    def utilicalcSugar(self, agent, pMove, fcVars):
+        agentX, agentY = agent.x, agent.y
+        sugarCapacity = self.env.getSugarAmt(pMove)
+        daysToDeath = agent.getDaysToStarvation()
+        if daysToDeath == 0:
+            daysToDeath = .1
+
+        fcVars["intensity"] = 1 / daysToDeath
+        fcVars["duration"] = sugarCapacity / agent.sugarMetabolism
+        fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
+            1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
+
+    # alternative to move function - moves using felicific_calculus.py functions for moral decision making
     def utilicalcMove(self):
-        # find best food location
         self.previousWealth = self.getWealth()
 
         # build a list of available food locations
@@ -870,129 +928,79 @@ class Agent:
         agents = self.getVisionNeighbourhood()
         agents.append(self)
         decisions = fc.EvaluateDecisions()
+
         if self.env.getSelfInterestScale() is not None:
             decisions.setSelfInterestScale(self.env.getSelfInterestScale())
 
-        if not self.env.getHasSpice():
-            moverIsDiseased = self.isDiseased()
-            for pMove in potentialMoves:
-                currentDecision = fc.Decision()
-                sugarCapacity = self.env.getSugarAmt(pMove)
-                for agent in agents:
-                    agentX, agentY = agent.getLocation()
-                    if agentX == pMove[0] or agentY == pMove[
-                        1]:  # if agent is not on same plane, ignore for this food location
-                        daysToDeath = agent.getDaysToStarvation()
-                        if daysToDeath == 0:
-                            daysToDeath = .1
+        for pMove in potentialMoves:
+            currentDecision = fc.Decision()
+            for agent in agents:
+                agentX, agentY = agent.getLocation()
+                if agentX == pMove[0] or agentY == pMove[
+                    1]:  # if agent not on a same axis, ignore for this location
 
-                        isPleasure = (agent == self)  # potential move is good only for me
-                        certainty = 1 if getDistance(agentX, agentY, pMove[0], pMove[
-                            1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
-                        propinquity = 1  # happening now
-                        fecundity = 0
-                        purity = 0
-                        extent = 1
-                        duration = 0
+                    fcVars = {
+                        "isPleasure": (agent == self),
+                        "intensity": 0,
+                        "duration": 0,
+                        "certainty": 0,
+                        "propinquity": 1,
+                        "fecundity": 0,
+                        "purity": 0,
+                        "f_intensity": 0,
+                        "f_duration": 0,
+                        "f_propinquity": 0,
+                        "f_extent": 0,
+                        "p_intensity": 0,
+                        "p_duration": 0,
+                        "p_propinquity": 0,
+                        "p_extent": 0,
+                        "extent": 1,
+                    }
 
-                        isDecisionMaker = (agent == self)
-                        if not self.env.getHasDisease():
-                            if not self.env.getHasSpice():
-                                intensity = (1 / daysToDeath)  # based off of how much they need sugar
+                    if self.env.getHasCombat():
+                        self.utilicalcCombat(agent, pMove, fcVars)
 
-                                if not self.env.getHasPollution():
-                                    duration = sugarCapacity / agent.sugarMetabolism  # how long will this satisfy me for?
+                    elif self.env.getHasSpice():
+                        self.utilicalcSpice(agent, pMove, fcVars)
 
-                                elif self.env.getHasPollution():
-                                    pollution = self.env.getPollutionAtLocation(pMove)
-                                    duration = (sugarCapacity / (
-                                            1 + pollution)) / agent.sugarMetabolism,  # sugar / 1 + pollution
+                    else:
+                        self.utilicalcSugar(agent, pMove, fcVars)
 
-                            elif self.env.getHasSpice():
-                                spiceCapacity = self.env.getSpiceAmt(pMove)
-                                intensity = agent.getWelfare(x=pMove[0],
-                                                             y=pMove[1])  # based off of how much they need sugar/spice
-                                duration = (sugarCapacity / agent.sugarMetabolism) + (
-                                        spiceCapacity / agent.spiceMetabolism)  # sugar + spice
+                    if self.env.getHasPollution():
+                        self.utilicalcPollution(agent, pMove, fcVars)
 
-                            currentDecision.createAgent(
-                                isPleasure=isPleasure,
-                                intensity=intensity,
-                                duration=duration,
-                                certainty=certainty,
-                                propinquity=propinquity,
-                                fecundity=fecundity,
-                                purity=purity,
-                                extent=extent,
-                                isDecisionMaker=isDecisionMaker
-                            )
+                    if self.env.getHasDisease():
+                        self.utilicalcDisease(agent, pMove, fcVars)
 
+                    if self.env.getHasCredit():
+                        self.utilicalcCredit(agent, pMove, fcVars)
 
-                        elif self.env.getHasDisease():
-                            intensity = (1 / daysToDeath)  # based off of how much they need sugar
-                            duration = sugarCapacity / agent.sugarMetabolism
-                            # agent may become diseased from the currently moving agent
-                            if agent != self:
-                                if getDistance(agentX, agentY, pMove[0], pMove[1]) == 1 and moverIsDiseased:
-                                    fecundity = 1
-                                    currentDecision.createAgent(
-                                        isPleasure=isPleasure,
-                                        intensity=intensity,
-                                        duration=duration,
-                                        certainty=certainty,
-                                        propinquity=propinquity,
-                                        fecundity=1,
-                                        f_intensity=1 / agent.getSugarMetabolism(),
-                                        f_duration=self.env.getDiseaseLength(),
-                                        f_propinquity=1,
-                                        f_extent=1,
-                                        purity=purity,
-                                        extent=extent,
-                                        isDecisionMaker=isDecisionMaker
-                                    )
-                                else:
-                                    currentDecision.createAgent(
-                                        isPleasure=isPleasure,
-                                        intensity=intensity,
-                                        duration=duration,
-                                        certainty=certainty,
-                                        propinquity=propinquity,
-                                        fecundity=fecundity,
-                                        purity=purity,
-                                        extent=extent,
-                                        isDecisionMaker=isDecisionMaker
-                                    )
-                            if agent == self:
-                                numDiseasedNearby = 0
-                                foodNeighbors = self.env.getNeighborhood(pMove[0], pMove[1])
-                                for foodNeighbor in foodNeighbors:
-                                    if foodNeighbor != self and (
-                                            foodNeighbor.x == agent.x or foodNeighbor.y == agent.y):
-                                        numDiseasedNearby += foodNeighbor.isDiseased()
-                                purity = 1
-                                currentDecision.createAgent(
-                                    isPleasure=isPleasure,
-                                    intensity=intensity,
-                                    duration=duration,
-                                    certainty=certainty,
-                                    propinquity=propinquity,
-                                    fecundity=fecundity,
-                                    purity=purity,
-                                    p_intensity=numDiseasedNearby / agent.getSugarMetabolism(),
-                                    p_duration=self.env.getDiseaseLength(),
-                                    p_propinquity=1,
-                                    p_extent=1,
-                                    extent=extent,
-                                    isDecisionMaker=isDecisionMaker
-                                )
-
-                decisions.addDecision(str(pMove[0]) + "," + str(pMove[1]), currentDecision)
-
+                    currentDecision.createAgent(
+                        isPleasure=fcVars["isPleasure"],
+                        intensity=fcVars["intensity"],
+                        duration=fcVars["duration"],
+                        certainty=fcVars["certainty"],
+                        propinquity=fcVars["propinquity"],
+                        fecundity=fcVars["fecundity"],
+                        purity=fcVars["purity"],
+                        f_intensity=fcVars["f_intensity"],
+                        f_duration=fcVars["f_duration"],
+                        f_propinquity=fcVars["f_propinquity"],
+                        f_extent=fcVars["f_extent"],
+                        p_intensity=fcVars["p_intensity"],
+                        p_duration=fcVars["p_duration"],
+                        p_propinquity=fcVars["p_propinquity"],
+                        p_extent=fcVars["p_extent"],
+                        extent=fcVars["extent"],
+                        isDecisionMaker=(agent == self)
+                    )
+            decisions.addDecision(str(pMove[0]) + "," + str(pMove[1]), currentDecision)
         bestMoves = decisions.getListOfDecisionsWithHighestValue()
         bestMove = random.choice(bestMoves)
         newx, newy = bestMove.split(",")
-        newx = int(newx)
-        newy = int(newy)
+        newx, newy = int(newx), int(newy)
+
         self.env.setAgent((self.x, self.y), None)
         self.env.setAgent((newx, newy), self)
         previousLocation = (self.x, self.y)
@@ -1250,6 +1258,7 @@ class Agent:
 
     def updateImmuneSystem(self):
         diseaseLength = self.env.getDiseaseLength()
+
         for disease, loc in list(self.diseases.items()):
             currentSubstr = self.immuneSystem[loc:loc + diseaseLength]
 
@@ -1258,7 +1267,7 @@ class Agent:
                 continue
 
             newSubstr = updateHelper(disease, currentSubstr)
-            self.immuneSystem.replace(currentSubstr, newSubstr, 1)
+            self.immuneSystem = self.immuneSystem.replace(currentSubstr, newSubstr, 1)
             hammingDist, loc = self.getHammingDistance(disease)
             self.diseases[disease] = loc
 

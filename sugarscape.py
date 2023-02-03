@@ -83,8 +83,8 @@ loanDuration = 10
 
 # There exists 2^(diseaseLength) unique diseases and 2^immuneSystemSize unique immune systems
 immuneSystemSize = 10  # number of bits per immune system
-diseaseLength = 3  # number of bits per disease
-numDiseases = 10
+diseaseLength = 7  # number of bits per disease
+numDiseases = 8
 numStartingDiseases = 2
 
 selfInterestScale = None
@@ -92,7 +92,7 @@ selfInterestScale = None
 rules = {
     "grow": True,
     "seasons": False,
-    "moveEat": True,  # move eat and combat need to be exclusive
+    "moveEat": False,  # move eat, utilicalc and combat need to be exclusive
     "canStarve": True,
     "pollution": False,
     "tags": False,
@@ -107,7 +107,7 @@ rules = {
     "credit": False,
     "inheritance": False,
     "disease": True,
-    "utilicalc": False
+    "utilicalc": True
 }
 
 if rules["tags"]:
@@ -328,7 +328,7 @@ class View:
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
         self.mainWindow, self.canvas = None, None
         self.height, self.width = screenSize[0] + 50, screenSize[1]
-        self.pause = False
+        self.pause = True
         self.updateScreen = True
         self.quit = False
         self.siteSize = screenSize[0] / env.gridWidth
@@ -958,7 +958,7 @@ class View:
 
         self.canvas = tk.Canvas(self.mainWindow, width=self.width, height=self.height, bg='white')
 
-        self.btnPlay = tk.Button(self.mainWindow, text="Pause Simulation", command=self.togglePause)
+        self.btnPlay = tk.Button(self.mainWindow, text="Play Simulation", command=self.togglePause)
         self.btnPlay.grid(row=0, column=0, sticky="nsew")
 
         self.btnUpdate = tk.Button(self.mainWindow, text="Pause Render ", command=self.toggleUpdateScreen)
@@ -1063,6 +1063,9 @@ if __name__ == '__main__':
     # add radial food site 
     env.addSugarSite(sites["southwest"], maxCapacity)
 
+    if rules["combat"]:
+        env.setHasCombat(True)
+
     if rules["pollution"]:
         env.setPollutionRules(pA, pB, pDiffusionRate, pollutionStartTime, diffusionStartTime)
 
@@ -1091,6 +1094,7 @@ if __name__ == '__main__':
             env.generateDisease()
 
     if rules["credit"]:
+        env.setHasCredit(True)
         env.setLoanRate(loanRate)
         env.setLoanDuration(loanDuration)
 
