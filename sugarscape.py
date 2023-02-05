@@ -13,6 +13,7 @@ from itertools import product
 from environment import Environment
 from agent import Agent
 import tkinter as tk
+import json
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -20,95 +21,80 @@ import matplotlib
 ''' 
 initial simulation parameters
 '''
+with open('settings.json') as settings_file:
+    settings = json.load(settings_file)
 
 # view
-screenSize = 600, 600
-gridSize = 50, 50
-colorBackground = 250, 250, 250
-graphUpdateFrequency = 5  # graphs update every graphUpdateFrequency frames
+screenSize = settings["view"]["screen_size"]["x"], settings["view"]["screen_size"]["y"]
+gridSize = settings["view"]["grid_size"]["x"], settings["view"]["grid_size"]["y"]
+colorBackground = settings["view"]["background_colors"]["R"], settings["view"]["background_colors"]["G"], settings["view"]["background_colors"]["B"]
+graphUpdateFrequency = settings["view"]["graph_update_frequency"]  # graphs update every graphUpdateFrequency frames
 
 # display colors - can be changed here and will update in the GUI
 colors = {
-    "sugar": "#F2FA00",
-    "spice": "#9B4722",
-    "both": "#BF8232",
-    "red": "#FA3232",
-    "pink": "#FA32FA",
-    "blue": "#3232FA",
-    "pollution": "#88C641"
+    "sugar": settings["view"]["env_color_hashes"]["sugar"],
+    "spice": settings["view"]["env_color_hashes"]["spice"],
+    "both": settings["view"]["env_color_hashes"]["both"],
+    "red": settings["view"]["env_color_hashes"]["red"],
+    "pink": settings["view"]["env_color_hashes"]["pink"],
+    "blue": settings["view"]["env_color_hashes"]["blue"],
+    "pollution": settings["view"]["env_color_hashes"]["pollution"]
 }
 
 # environment
 sites = {
-    "northeast": (35, 15, 18),
-    "southwest": (15, 35, 18),
-    "southeast": (40, 40, 14),
-    "northwest": (10, 10, 14)
+    "northeast": (settings["env"]["sites"]["ne"]["x"], settings["env"]["sites"]["ne"]["y"], settings["env"]["sites"]["ne"]["radius"]),
+    "southwest": (settings["env"]["sites"]["sw"]["x"], settings["env"]["sites"]["sw"]["y"], settings["env"]["sites"]["sw"]["radius"]),
+    "southeast": (settings["env"]["sites"]["se"]["x"], settings["env"]["sites"]["se"]["y"], settings["env"]["sites"]["se"]["radius"]),
+    "northwest": (settings["env"]["sites"]["nw"]["x"], settings["env"]["sites"]["nw"]["y"], settings["env"]["sites"]["nw"]["radius"])
 }
 
-maxCapacity = 10
-seasonPeriod = 50
+maxCapacity = settings["env"]["max_capacity"]
+
+rule_params = settings["rule_params"]
+
+seasonPeriod = rule_params["seasons"]["period"]
 
 seasonRegions = {
-    "north": (0, 0, 49, 24),
-    "south": (0, 25, 49, 49)
+    "north": (rule_params["seasons"]["regions"]["north"]["start_x"], rule_params["seasons"]["regions"]["north"]["start_y"], rule_params["seasons"]["regions"]["north"]["end_x"], rule_params["seasons"]["regions"]["north"]["end_y"]),
+    "south": (rule_params["seasons"]["regions"]["south"]["start_x"], rule_params["seasons"]["regions"]["south"]["start_y"], rule_params["seasons"]["regions"]["south"]["end_x"], rule_params["seasons"]["regions"]["south"]["end_y"]),
 }
 
-growFactor = 1
-growFactor1 = 1
-growFactor2 = float(growFactor1) / 8
+growFactor = settings["env"]["growth_factor"]["grow_factor"]
+growFactorOnSeason = settings["env"]["growth_factor"]["grow_factor_on_season"]
+growFactorOffSeasonDivisor = settings["env"]["growth_factor"]["grow_factor_off_season_divisor"]
+growFactorOffSeason = float(growFactorOnSeason) / growFactorOffSeasonDivisor
 
 # agents
 # agentColorScheme: Agents colour meaning = 0:all, 1:bySex, 2:byMetabolism, 3:byVision, 4:byGroup
-maxAgentMetabolism = 5
-maxAgentVision = 5
-initEndowment = 50, 100
-minmaxAgentAge = 60, 100
+maxAgentMetabolism = settings["agents"]["max_agent_metabolism"]
+maxAgentVision = settings["agents"]["max_agent_vision"]
+initEndowment = settings["agents"]["initial_endowments"]["sugar"], settings["agents"]["initial_endowments"]["spice"]
+minmaxAgentAge = settings["agents"]["death_age_range"]["min"], settings["agents"]["death_age_range"]["max"]
 
 female = 0
 male = 1
-
-fertility = [(12, 15, 40, 50),
-             (12, 15, 50, 60),
-             (12, 15, 30, 40),
-             (12, 15, 40, 50)]
+fert_ages = settings["agents"]["fertility_age_ranges"]
+fertility = [(fert_ages["male"]["min_start"], fert_ages["male"]["max_start"], fert_ages["male"]["min_end"], fert_ages["male"]["max_end"]),
+             (fert_ages["female"]["min_start"], fert_ages["female"]["max_start"], fert_ages["female"]["min_end"], fert_ages["female"]["max_end"])]
 childbearing = fertility[0], fertility[1]  # female , male
 
-tagsLength = 5  # must be odd
-tags0 = 0
+tagsLength = rule_params["tags"]["tags_length"]  # must be odd
+tags0 = rule_params["tags"]["tags0"]
 tags1 = 2 ** tagsLength - 1
 
-loanRate = 1.05
-loanDuration = 10
+loanRate = rule_params["loans"]["rate"]
+loanDuration = rule_params["loans"]["duration"]
 
 # There exists 2^(diseaseLength) unique diseases and 2^immuneSystemSize unique immune systems
-immuneSystemSize = 10  # number of bits per immune system
-diseaseLength = 7  # number of bits per disease
-numDiseases = 8
-numStartingDiseases = 2
+immuneSystemSize = rule_params["disease"]["immune_system_size"]  # number of bits per immune system
+diseaseLength = rule_params["disease"]["disease_length"]  # number of bits per disease
+numDiseases = rule_params["disease"]["num_diseases"]
+numStartingDiseases = rule_params["disease"]["num_starting_diseases"]
 
-selfInterestScale = None
+selfInterestScale = rule_params["utilicalc"]["self_interest_scale"]
 
-rules = {
-    "grow": True,
-    "seasons": False,
-    "moveEat": False,  # move eat, utilicalc and combat need to be exclusive
-    "canStarve": True,
-    "pollution": False,
-    "tags": False,
-    "combat": False,
-    "limitedLifespan": True,
-    "replacement": False,
-    "procreate": True,
-    "transmit": False,
-    "spice": False,  # following must be off for pollution
-    "trade": False,
-    "foresight": False,
-    "credit": False,
-    "inheritance": False,
-    "disease": True,
-    "utilicalc": True
-}
+rules = settings["rules"]
 
 if rules["tags"]:
     agentColorScheme = 4
@@ -117,29 +103,30 @@ else:
     agentColorScheme = 1
 
 if rules["pollution"]:
-    pA = .1  # production pollution
-    pB = .1  # consumption pollution
-    pDiffusionRate = 5
-    pollutionStartTime = 50
-    diffusionStartTime = 100
+    pA = rule_params["pollution"]["A"]  # production pollution
+    pB = rule_params["pollution"]["B"]  # consumption pollution
+    pDiffusionRate = rule_params["pollution"]["diffusion_rate"]
+    pollutionStartTime = rule_params["pollution"]["pollution_start_time"]
+    diffusionStartTime = rule_params["pollution"]["diffusion_start_time"]
 
 if rules["foresight"]:
-    foresightRange = (0, 10)
+    foresightRange = (rule_params["foresight"]["range_start"], rule_params["foresight"]["range_end"])
 
-totalAgents = 125, 125  # number of blue agents, number of red agents
+totalAgents = settings["env"]["total_agents"]["blue"], settings["env"]["total_agents"]["red"]  # number of blue agents, number of red agents
 
+agent_dist = settings["env"]["agent_distributions"]
 distributions = [
-    (totalAgents[0], tags0, (0, 50, 0, 50)),  # blues
-    (totalAgents[1], tags1, (0, 50, 0, 50))]  # reds
+    (totalAgents[0], tags0, (agent_dist["blue"]["x_min"], agent_dist["blue"]["x_max"], agent_dist["blue"]["y_min"], agent_dist["blue"]["y_max"])),  # blues
+    (totalAgents[1], tags1, (agent_dist["red"]["x_min"], agent_dist["red"]["x_max"], agent_dist["red"]["y_min"], agent_dist["red"]["y_max"]))]  # reds
 
-boundGraphData = True  # if False, graphs will not be scaled to numDeviations std devs from the mean
-numDeviations = 2  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
+boundGraphData = settings["view"]["bound_graph_data"]  # if False, graphs will not be scaled to numDeviations std devs from the mean
+numDeviations = settings["view"]["bound_to_n_deviations"]  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
 
-isRandom = False
-combatAlpha = 1000000
+isRandom = settings["env"]["is_random"]
+combatAlpha = rule_params["combat"]["alpha"]
 
 if not isRandom:
-    random.seed(0)
+    random.seed(settings["env"]["random_seed"])
 
 ''' 
 Global functions
@@ -547,14 +534,14 @@ class View:
                 # Summer
                 self.season = "(summer, winter)"
                 if rules["grow"]:
-                    self.env.growRegion(seasonRegions["north"], growFactor1)
-                    self.env.growRegion(seasonRegions["south"], growFactor2)
+                    self.env.growRegion(seasonRegions["north"], growFactorOnSeason)
+                    self.env.growRegion(seasonRegions["south"], growFactorOffSeason)
             else:
                 # winter
                 self.season = "(winter, summer)"
                 if rules["grow"]:
-                    self.env.growRegion(seasonRegions["north"], growFactor2)
-                    self.env.growRegion(seasonRegions["south"], growFactor1)
+                    self.env.growRegion(seasonRegions["north"], growFactorOffSeason)
+                    self.env.growRegion(seasonRegions["south"], growFactorOnSeason)
 
         elif rules["grow"]:
             self.season = "NA"
