@@ -107,7 +107,7 @@ def updateHelper(disease, immuneSubstr):  # updates immuneSubstr to match diseas
 
 
 def getDistance(x1, y1, x2, y2):
-    return int(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
+    return int(math.floor(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)))
 
 
 class Agent:
@@ -863,13 +863,13 @@ class Agent:
         pass
 
     def utilicalcSpice(self, agent, pMove, fcVars):
-        sugarCapacity = self.env.getSugarAmt(pMove)
-        spiceCapacity = self.env.getSpiceAmt(pMove)
+        agentX, agentY = agent.x, agent.y
 
         fcVars["intensity"] = agent.getWelfare(x=pMove[0],
                                                y=pMove[1])  # based off of how much they need sugar/spice
-        fcVars["duration"] = (sugarCapacity / agent.sugarMetabolism) + (
-                spiceCapacity / agent.spiceMetabolism)  # sugar + spice
+        fcVars["duration"] = 1  # welfare function handles the tjos
+        fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
+            1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
 
     def utilicalcCredit(self, agent, pMove, fcVars):
         pass
@@ -890,8 +890,9 @@ class Agent:
             numDiseasedNearby = 0
             foodNeighbors = self.env.getNeighborhood(pMove[0], pMove[1])
             for foodNeighbor in foodNeighbors:
-                if foodNeighbor != self and (
-                        foodNeighbor.x == agent.x or foodNeighbor.y == agent.y):
+                if foodNeighbor != self and \
+                        (foodNeighbor.x == agent.x or foodNeighbor.y == agent.y) and \
+                        getDistance(foodNeighbor.x, foodNeighbor.y, agent.x, agent.y) <= agent.getVision():
                     numDiseasedNearby += foodNeighbor.isDiseased()
 
             fcVars["purity"] = 1
@@ -936,9 +937,7 @@ class Agent:
             currentDecision = fc.Decision()
             for agent in agents:
                 agentX, agentY = agent.getLocation()
-                if agentX == pMove[0] or agentY == pMove[
-                    1]:  # if agent not on a same axis, ignore for this location
-
+                if agentX == pMove[0] or agentY == pMove[1]:  # if agent not on a same axis, ignore for this location
                     fcVars = {
                         "isPleasure": (agent == self),
                         "intensity": 0,
@@ -997,6 +996,7 @@ class Agent:
                     )
             decisions.addDecision(str(pMove[0]) + "," + str(pMove[1]), currentDecision)
         bestMoves = decisions.getListOfDecisionsWithHighestValue()
+        #decisions.printMoralValueForAllDecisions()
         bestMove = random.choice(bestMoves)
         newx, newy = bestMove.split(",")
         newx, newy = int(newx), int(newy)
