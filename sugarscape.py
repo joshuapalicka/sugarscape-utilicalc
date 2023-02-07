@@ -54,10 +54,10 @@ maxCapacity = settings["env"]["max_capacity"]
 rule_params = settings["rule_params"]
 
 seasonPeriod = rule_params["seasons"]["period"]
-
+seasonRegionsDict = rule_params["seasons"]["regions"]
 seasonRegions = {
-    "north": (rule_params["seasons"]["regions"]["north"]["start_x"], rule_params["seasons"]["regions"]["north"]["start_y"], rule_params["seasons"]["regions"]["north"]["end_x"], rule_params["seasons"]["regions"]["north"]["end_y"]),
-    "south": (rule_params["seasons"]["regions"]["south"]["start_x"], rule_params["seasons"]["regions"]["south"]["start_y"], rule_params["seasons"]["regions"]["south"]["end_x"], rule_params["seasons"]["regions"]["south"]["end_y"]),
+    "north": (seasonRegionsDict["north"]["start_x"], seasonRegionsDict["north"]["start_y"], seasonRegionsDict["north"]["end_x"], seasonRegionsDict["north"]["end_y"]),
+    "south": (seasonRegionsDict["south"]["start_x"], seasonRegionsDict["south"]["start_y"], seasonRegionsDict["south"]["end_x"], seasonRegionsDict["south"]["end_y"]),
 }
 
 growFactor = settings["env"]["growth_factor"]["grow_factor"]
