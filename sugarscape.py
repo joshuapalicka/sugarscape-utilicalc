@@ -27,7 +27,8 @@ with open('settings.json') as settings_file:
 # view
 screenSize = settings["view"]["screen_size"]["x"], settings["view"]["screen_size"]["y"]
 gridSize = settings["view"]["grid_size"]["x"], settings["view"]["grid_size"]["y"]
-colorBackground = settings["view"]["background_colors"]["R"], settings["view"]["background_colors"]["G"], settings["view"]["background_colors"]["B"]
+colorBackground = settings["view"]["background_colors"]["R"], settings["view"]["background_colors"]["G"], \
+                  settings["view"]["background_colors"]["B"]
 graphUpdateFrequency = settings["view"]["graph_update_frequency"]  # graphs update every graphUpdateFrequency frames
 
 # display colors - can be changed here and will update in the GUI
@@ -43,10 +44,18 @@ colors = {
 
 # environment
 sites = {
-    "northeast": (settings["env"]["sites"]["ne"]["x"], settings["env"]["sites"]["ne"]["y"], settings["env"]["sites"]["ne"]["radius"]),
-    "southwest": (settings["env"]["sites"]["sw"]["x"], settings["env"]["sites"]["sw"]["y"], settings["env"]["sites"]["sw"]["radius"]),
-    "southeast": (settings["env"]["sites"]["se"]["x"], settings["env"]["sites"]["se"]["y"], settings["env"]["sites"]["se"]["radius"]),
-    "northwest": (settings["env"]["sites"]["nw"]["x"], settings["env"]["sites"]["nw"]["y"], settings["env"]["sites"]["nw"]["radius"])
+    "northeast": (
+        settings["env"]["sites"]["ne"]["x"], settings["env"]["sites"]["ne"]["y"],
+        settings["env"]["sites"]["ne"]["radius"]),
+    "southwest": (
+        settings["env"]["sites"]["sw"]["x"], settings["env"]["sites"]["sw"]["y"],
+        settings["env"]["sites"]["sw"]["radius"]),
+    "southeast": (
+        settings["env"]["sites"]["se"]["x"], settings["env"]["sites"]["se"]["y"],
+        settings["env"]["sites"]["se"]["radius"]),
+    "northwest": (
+        settings["env"]["sites"]["nw"]["x"], settings["env"]["sites"]["nw"]["y"],
+        settings["env"]["sites"]["nw"]["radius"])
 }
 
 maxCapacity = settings["env"]["max_capacity"]
@@ -56,8 +65,14 @@ rule_params = settings["rule_params"]
 seasonPeriod = rule_params["seasons"]["period"]
 seasonRegionsDict = rule_params["seasons"]["regions"]
 seasonRegions = {
-    "north": (seasonRegionsDict["north"]["start_x"], seasonRegionsDict["north"]["start_y"], seasonRegionsDict["north"]["end_x"], seasonRegionsDict["north"]["end_y"]),
-    "south": (seasonRegionsDict["south"]["start_x"], seasonRegionsDict["south"]["start_y"], seasonRegionsDict["south"]["end_x"], seasonRegionsDict["south"]["end_y"]),
+    "north": (
+        seasonRegionsDict["north"]["start_x"], seasonRegionsDict["north"]["start_y"],
+        seasonRegionsDict["north"]["end_x"],
+        seasonRegionsDict["north"]["end_y"]),
+    "south": (
+        seasonRegionsDict["south"]["start_x"], seasonRegionsDict["south"]["start_y"],
+        seasonRegionsDict["south"]["end_x"],
+        seasonRegionsDict["south"]["end_y"]),
 }
 
 growFactor = settings["env"]["growth_factor"]["grow_factor"]
@@ -75,8 +90,10 @@ minmaxAgentAge = settings["agents"]["death_age_range"]["min"], settings["agents"
 female = 0
 male = 1
 fert_ages = settings["agents"]["fertility_age_ranges"]
-fertility = [(fert_ages["male"]["min_start"], fert_ages["male"]["max_start"], fert_ages["male"]["min_end"], fert_ages["male"]["max_end"]),
-             (fert_ages["female"]["min_start"], fert_ages["female"]["max_start"], fert_ages["female"]["min_end"], fert_ages["female"]["max_end"])]
+fertility = [(fert_ages["male"]["min_start"], fert_ages["male"]["max_start"], fert_ages["male"]["min_end"],
+              fert_ages["male"]["max_end"]),
+             (fert_ages["female"]["min_start"], fert_ages["female"]["max_start"], fert_ages["female"]["min_end"],
+              fert_ages["female"]["max_end"])]
 childbearing = fertility[0], fertility[1]  # female , male
 
 tagsLength = rule_params["tags"]["tags_length"]  # must be odd
@@ -112,25 +129,67 @@ if rules["pollution"]:
 if rules["foresight"]:
     foresightRange = (rule_params["foresight"]["range_start"], rule_params["foresight"]["range_end"])
 
-totalAgents = settings["env"]["total_agents"]["blue"], settings["env"]["total_agents"]["red"]  # number of blue agents, number of red agents
+totalAgents = settings["env"]["total_agents"]["blue"], settings["env"]["total_agents"][
+    "red"]  # number of blue agents, number of red agents
 
 agent_dist = settings["env"]["agent_distributions"]
 distributions = [
-    (totalAgents[0], tags0, (agent_dist["blue"]["x_min"], agent_dist["blue"]["x_max"], agent_dist["blue"]["y_min"], agent_dist["blue"]["y_max"])),  # blues
-    (totalAgents[1], tags1, (agent_dist["red"]["x_min"], agent_dist["red"]["x_max"], agent_dist["red"]["y_min"], agent_dist["red"]["y_max"]))]  # reds
+    (totalAgents[0], tags0, (agent_dist["blue"]["x_min"], agent_dist["blue"]["x_max"], agent_dist["blue"]["y_min"],
+                             agent_dist["blue"]["y_max"])),  # blues
+    (totalAgents[1], tags1, (agent_dist["red"]["x_min"], agent_dist["red"]["x_max"], agent_dist["red"]["y_min"],
+                             agent_dist["red"]["y_max"]))]  # reds
 
-boundGraphData = settings["view"]["bound_graph_data"]  # if False, graphs will not be scaled to numDeviations std devs from the mean
-numDeviations = settings["view"]["bound_to_n_deviations"]  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
+boundGraphData = settings["view"][
+    "bound_graph_data"]  # if False, graphs will not be scaled to numDeviations std devs from the mean
+numDeviations = settings["view"][
+    "bound_to_n_deviations"]  # set graph bounds to be within numDeviations standard deviations of the mean if boundGraphs is True
 
 isRandom = settings["env"]["is_random"]
-combatAlpha = rule_params["combat"]["alpha"]
+
+if rules["combat"]:
+    combatAlpha = rule_params["combat"]["alpha"]
 
 if not isRandom:
     random.seed(settings["env"]["random_seed"])
 
+
+class ConflictingRuleException(Exception):
+    def __init__(self, rule1, rule2):
+        self.message = str(rule1) + " and " + str(rule2) + " cannot be used together"
+        super().__init__(self.message)
+
+
+class MissingRuleException(Exception):
+    def __init__(self, missingRule, enabledRule):
+        self.message = str(enabledRule) + " is enabled, but needs " + str(missingRule) + " to function properly"
+        super().__init__(self.message)
+
+
 ''' 
 Global functions
 '''
+
+
+def ruleCheck():
+    if rules["moveEat"]:
+        if rules["combat"]:
+            raise ConflictingRuleException("moveEat", "combat")
+        if rules["utilicalc"]:
+            raise ConflictingRuleException("moveEat", "utilicalc")
+
+    if rules["pollution"]:
+        if rules["spice"]:
+            raise ConflictingRuleException("pollution", "spice")
+
+    if not rules["spice"]:
+        if rules["trade"]:
+            raise MissingRuleException("spice", "trade")
+        if rules["foresight"]:
+            raise MissingRuleException("spice", "foresight")
+        if rules["credit"]:
+            raise MissingRuleException("spice", "credit")
+        if rules["inheritance"]:
+            raise MissingRuleException("spice", "inheritance")
 
 
 # Changes a hex color to RGB, as tkinter uses hex colors, but it's easier for me to work with RGB
@@ -1042,6 +1101,8 @@ Main
 
 if __name__ == '__main__':
 
+    ruleCheck()
+
     env = Environment(gridSize)
 
     # add radial food site 
@@ -1052,6 +1113,7 @@ if __name__ == '__main__':
 
     if rules["combat"]:
         env.setHasCombat(True)
+        env.setCombatAlpha(combatAlpha)
 
     if rules["pollution"]:
         env.setPollutionRules(pA, pB, pDiffusionRate, pollutionStartTime, diffusionStartTime)

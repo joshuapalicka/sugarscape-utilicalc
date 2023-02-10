@@ -42,6 +42,8 @@ class Environment:
         self.hasCombat = False
         self.hasCredit = False
 
+        self.combatAlpha = None
+
         self.diseases = []
         self.immuneSystemSize = None
         self.diseaseLength = None
@@ -244,6 +246,12 @@ class Environment:
 
     def getHasLimitedLifespan(self):
         return self.hasLimitedLifespan
+
+    def setCombatAlpha(self, alpha):
+        self.combatAlpha = alpha
+
+    def getCombatAlpha(self):
+        return self.combatAlpha
 
     def setSelfInterestScale(self, selfInterestScale):
         self.selfInterestScale = selfInterestScale
