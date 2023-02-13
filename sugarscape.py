@@ -177,6 +177,12 @@ def ruleCheck():
         if rules["utilicalc"]:
             raise ConflictingRuleException("moveEat", "utilicalc")
 
+    if rules["combat"]:
+        if not rules["tags"]:
+            raise MissingRuleException("tags", "combat")
+        if rules["spice"]:
+            raise ConflictingRuleException("combat", "spice")
+
     if rules["pollution"]:
         if rules["spice"]:
             raise ConflictingRuleException("pollution", "spice")
@@ -481,10 +487,12 @@ class View:
                 agent.move()
 
             if rules["utilicalc"]:
-                agent.utilicalcMove()
+                deadAgent = agent.utilicalcMove()
+                if deadAgent:
+                    self.removeAgent(deadAgent)
 
             # COMBAT
-            if rules["combat"]:
+            if rules["combat"] and not rules["utilicalc"]:
                 killed = agent.combat(combatAlpha)
                 # if an agent has been killed, remove it
                 if killed:

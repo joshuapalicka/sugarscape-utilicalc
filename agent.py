@@ -409,17 +409,31 @@ class Agent:
                  if self.env.isLocationValid((x, self.y))
                  and not self.env.isLocationFree((x, self.y))
                  and self.sugar > self.env.getAgent((x, self.y)).getSugar()
-                 and self.env.getAgent((x, self.y)).getTribe() != self.tribe]
+                 and self.env.getAgent((x, self.y)).getTribe() != self.getTribe()]
 
         preys.extend([self.env.getAgent((self.x, y)) for y in range(self.y - self.vision, self.y + self.vision + 1)
                       if self.env.isLocationValid((self.x, y))
                       and not self.env.isLocationFree((self.x, y))
                       and self.sugar > self.env.getAgent((self.x, y)).getSugar()
-                      and self.env.getAgent((self.x, y)).getTribe() != self.tribe])
+                      and self.env.getAgent((self.x, y)).getTribe() != self.getTribe()])
 
         random.shuffle(preys)
 
         return preys
+
+    def getFoodWithCombat(self, prey_list):
+        preys = prey_list
+
+        food = self.getFood()
+        C0 = self.sugar - self.sugarMetabolism
+        food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
+                     if preyA != preyB
+                     and preyB.getSugar() < (
+                             C0 + self.env.getSugarAmt(preyA.getLocation()) + min(self.env.getCombatAlpha(),
+                                                                                  preyA.getSugar()))])
+
+        random.shuffle(food)
+        return food
 
     ''' 
     rules
@@ -443,7 +457,7 @@ class Agent:
     If a potential borrower and a potential lender are neighbors then a loan is originated with a duration of d years at 
     the rate of r percent and the face value of the loan amount is transferred from the lender to the borrower
 
-    At the time of the loan due date, if the borrower has sufficient wealth to repay the lan then a transfer from the 
+    At the time of the loan due date, if the borrower has sufficient wealth to repay the loan then a transfer from the 
     borrower to the lender is made; else the borrower is required to pay back half of its wealth and a new loan is 
     originated for the remaining sum
 
@@ -859,24 +873,53 @@ class Agent:
         sugarCapacity = self.env.getSugarAmt(pMove)
         fcVars["duration"] -= (sugarCapacity / (1 + pollution)) / agent.sugarMetabolism,  # sugar / 1 + pollution
 
-    def utilicalcCombat(self, agent, pMove, fcVars):
-        agentX, agentY = agent.X, agent.Y
+    def utilicalcCombat(self, agent, pMove,
+                        fcVars):  # TODO: do something interesting with tags here? Should agent care about agents with other tags?
+        agentX, agentY = agent.x, agent.y
+        # if we're moving
         if agent == self:
             daysToDeath = agent.getDaysToStarvation()
             if daysToDeath == 0:
                 daysToDeath = .1
 
-            agentOnSite = self.env.getAgent(pMove[0], pMove[1])
+            agentOnSite = self.env.getAgent((pMove[0], pMove[1]))
 
-            siteWealth = self.env.getSugarAmt(pMove[0], pMove[1])
+            siteWealth = self.env.getSugarAmt((pMove[0], pMove[1]))
             if agentOnSite:
+                if agentOnSite.getTags() == agent.getTags():
+                    return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
-            fcVars["intensity"] = 1/daysToDeath
+            fcVars["intensity"] = 1 / daysToDeath
             fcVars["duration"] = siteWealth / agent.sugarMetabolism
             fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
                 1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
-        else:
-            pass
+
+        # if this agent will be killed by a move here
+        elif pMove == agent.getLocation():
+            fcVars["intensity"] = 10  # agent will be killed TODO: Make less arbitrary
+            fcVars["duration"] = 1
+            fcVars["certainty"] = 1
+
+        # Only care about other agent moves if they are of the same tribe
+        elif agent.getTribe() == self.getTribe():
+            daysToDeath = agent.getDaysToStarvation()
+            if daysToDeath == 0:
+                daysToDeath = .1
+
+            agentOnSite = self.env.getAgent((pMove[0], pMove[1]))
+            siteWealth = self.env.getSugarAmt((pMove[0], pMove[1]))
+
+            if agentOnSite and agentOnSite.getTags() != agent.getTags():
+                # if it is not a battle the current agent can win, do not consider the move
+                if (agent.sugar + self.env.getSugarAmt((pMove[0],
+                                                       pMove[1])) - self.sugarMetabolism) <= agentOnSite.sugar:
+                    return
+                siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
+
+            fcVars["intensity"] = 1 / daysToDeath
+            fcVars["duration"] = siteWealth / agent.sugarMetabolism
+            fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
+                1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
 
     def utilicalcSpice(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
@@ -934,7 +977,7 @@ class Agent:
         self.previousWealth = self.getWealth()
 
         # build a list of available food locations
-        potentialMoves = self.getFood() if not self.env.getHasCombat else self.getPreys()
+        potentialMoves = self.getFood() if not self.env.getHasCombat else self.getFoodWithCombat(self.getPreys())
 
         # randomize food locations
         random.shuffle(potentialMoves)
@@ -1012,10 +1055,17 @@ class Agent:
                     )
             decisions.addDecision(str(pMove[0]) + "," + str(pMove[1]), currentDecision)
         bestMoves = decisions.getListOfDecisionsWithHighestValue()
-        #decisions.printMoralValueForAllDecisions()
+        # decisions.printMoralValueForAllDecisions()
         bestMove = random.choice(bestMoves)
         newx, newy = bestMove.split(",")
         newx, newy = int(newx), int(newy)
+
+        killed = None  # combat
+        if self.env.getHasCombat():
+            killed = self.env.getAgent((newx, newy))
+            if killed is not None:
+                self.addLogEntry("I killed Agent" + str(killed.getId) + "at" + str(killed.getLocation()))
+                self.setSugar(min(self.sugar + killed.sugar, self.sugar + self.env.getCombatAlpha()), "kill of agent " + str(killed.getId))
 
         self.env.setAgent((self.x, self.y), None)
         self.env.setAgent((newx, newy), self)
@@ -1034,6 +1084,9 @@ class Agent:
 
         if self.env.getHasPollution():
             self.env.polluteSite((newx, newy), best_sugar, 0)
+
+        if self.env.getHasCombat():
+            return killed
 
     """
     Concept: Trade
@@ -1169,29 +1222,7 @@ class Agent:
     """
 
     def combat(self, alpha):
-        hasSpice = self.env.getHasSpice()
-
-        # build a list of available unoccupied food locations
-        food = self.getFood()
-
-        # build a list of potential preys
-        preys = self.getPreys()
-
-        # append to food safe preys (retaliation condition)
-        C0 = self.sugar - self.sugarMetabolism
-        if not hasSpice:
-            food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
-                         if preyA != preyB
-                         and preyB.getSugar() < (
-                                 C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))])
-        else:
-            C1 = self.spice - self.spiceMetabolism
-            food.extend([preyA.getLocation() for preyA, preyB in product(preys, preys)
-                         if preyA != preyB
-                         and preyB.getSugar() < (
-                                 C0 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSugar()))
-                         and preyB.getSpice() < (
-                                 C1 + self.env.getCapacity(preyA.getLocation()) + min(alpha, preyA.getSpice()))])
+        food = self.getFoodWithCombat(self.getPreys())
 
         # randomize food locations
         random.shuffle(food)
@@ -1200,10 +1231,10 @@ class Agent:
         move = False
         newx = self.x
         newy = self.y
-        best = self.env.getCapacity((self.x, self.y))
+        best = self.env.getSugarAmt((self.x, self.y))
         minDistance = 0
         for (x, y) in food:
-            capacity = self.env.getCapacity((x, y))
+            capacity = self.env.getSugarAmt((x, y))
             agent = self.env.getAgent((x, y))
             if agent:
                 capacity += min(alpha, agent.getSugar())
@@ -1229,9 +1260,7 @@ class Agent:
 
         # collect, eat and consume
         self.setSugar(max(self.sugar + best, 0), "Move")
-        if hasSpice:
-            self.setSpice(max(self.spice + best, 0), "Move")
-        self.env.setCapacity((self.x, self.y), 0)
+        self.env.setSugarAmt((self.x, self.y), 0)
         return killed
 
     """
