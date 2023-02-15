@@ -380,7 +380,7 @@ class View:
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
         self.mainWindow, self.canvas = None, None
         self.height, self.width = screenSize[0] + 50, screenSize[1]
-        self.pause = True
+        self.pause = settings["view"]["start_paused"]
         self.updateScreen = True
         self.quit = False
         self.siteSize = screenSize[0] / env.gridWidth

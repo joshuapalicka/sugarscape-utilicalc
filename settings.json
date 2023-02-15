@@ -72,6 +72,8 @@
   },
 
   "view": {
+    "start_paused": true,
+
     "screen_size": {
       "x": 600,
       "y": 600
