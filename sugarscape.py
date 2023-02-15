@@ -379,7 +379,7 @@ class View:
         self.stats = {}
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
         self.mainWindow, self.canvas = None, None
-        self.height, self.width = screenSize[0] + 50, screenSize[1]
+        self.height, self.width = screenSize[0] + 40, screenSize[1] + 5
         self.pause = settings["view"]["start_paused"]
         self.updateScreen = True
         self.quit = False
@@ -699,6 +699,35 @@ class View:
                                                             round_to)
             self.stats["Proportion of Infected Agents"] = round(
                 sum(self.proportionInfectedAgents) / len(self.proportionInfectedAgents), round_to)
+
+    def onClick(self, event):
+        squareAtX = event.x - 5  # subtract 5 to account for small amount of padding on grid
+        squareAtY = event.y - 5
+        squareSize = screenSize[0] // gridSize[0]
+        column = squareAtX // squareSize
+        row = squareAtY // squareSize
+
+        sugarAtClick = self.env.getSugarAmt((column, row))
+        spiceAtClick = self.env.getSpiceAmt((column, row))
+        print("Sugar and spice at click: ", sugarAtClick, spiceAtClick)
+        agentAtClick = self.env.getAgent((column, row))
+        if agentAtClick:
+            agent = agentAtClick
+            agent.getSugar()
+            agent.getSpice()
+            agent.getLog()
+            agent.getAge()
+            agent.getNumAfflictedDiseases()
+            agent.getChildren()
+            agent.getSex()
+            agent.getId()
+            agent.getMaxAge()
+            agent.getTags()
+            agent.getVision()
+            agent.getSugarMetabolism()
+            agent.getSpiceMetabolism()
+
+
 
     def setQuit(self):
         self.quit = True
@@ -1070,6 +1099,7 @@ class View:
 
         self.mainWindow.protocol("WM_DELETE_WINDOW", self.on_mainClosing)
 
+        self.canvas.bind("<Button-1>", self.onClick)
         self.initialDraw()
         self.updateWindow()
 

@@ -75,8 +75,8 @@
     "start_paused": true,
 
     "screen_size": {
-      "x": 600,
-      "y": 600
+      "x": 800,
+      "y": 800
     },
     "grid_size": {
       "x": 50,
