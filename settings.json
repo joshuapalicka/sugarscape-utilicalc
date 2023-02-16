@@ -17,7 +17,7 @@
     "credit": false,
     "inheritance": false,
     "disease": false,
-    "utilicalc": false
+    "utilicalc": true
   },
 
   "rule_params": {

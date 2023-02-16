@@ -895,7 +895,7 @@ class Agent:
 
         # if this agent will be killed by a move here
         elif pMove == agent.getLocation():
-            fcVars["intensity"] = 10  # agent will be killed TODO: Make less arbitrary
+            fcVars["intensity"] = 100  # agent will be killed TODO: Make less arbitrary
             fcVars["duration"] = 1
             fcVars["certainty"] = 1
 

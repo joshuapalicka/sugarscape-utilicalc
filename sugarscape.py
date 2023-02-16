@@ -28,7 +28,7 @@ with open('settings.json') as settings_file:
 screenSize = settings["view"]["screen_size"]["x"], settings["view"]["screen_size"]["y"]
 gridSize = settings["view"]["grid_size"]["x"], settings["view"]["grid_size"]["y"]
 colorBackground = settings["view"]["background_colors"]["R"], settings["view"]["background_colors"]["G"], \
-                  settings["view"]["background_colors"]["B"]
+    settings["view"]["background_colors"]["B"]
 graphUpdateFrequency = settings["view"]["graph_update_frequency"]  # graphs update every graphUpdateFrequency frames
 
 # display colors - can be changed here and will update in the GUI
@@ -375,6 +375,7 @@ class View:
 
         # init view
 
+        self.locationStatsWindow = None
         self.update = None
         self.stats = {}
         self.wealthWidget, self.metabolismWidget, self.popWidget = None, None, None
@@ -430,7 +431,7 @@ class View:
         self.btnStep = None
         self.btnUpdate = None
         self.btnPlay = None
-        self.text_box = None
+        self.statsTextBox = None
         self.agentViewOptions = None
 
     # Maps the agent color scheme number to which function determines the color of each agent
@@ -727,8 +728,6 @@ class View:
             agent.getSugarMetabolism()
             agent.getSpiceMetabolism()
 
-
-
     def setQuit(self):
         self.quit = True
 
@@ -998,22 +997,26 @@ class View:
         self.statsWindow.destroy()
         self.statsWindow = None
 
+    def on_locationStatsClosing(self):
+        self.locationStatsWindow.destroy()
+        self.locationStatsWindow = None
+
     def updateStatsWindow(self):
         if self.statsWindow:
             self.makeStatsDict()
-            self.text_box.configure(state='normal')
-            self.text_box.delete("1.0", tk.END)
+            self.statsTextBox.configure(state='normal')
+            self.statsTextBox.delete("1.0", tk.END)
             for key, value in self.stats.items():
-                self.text_box.insert(tk.END, key + ": " + str(value) + "\n")
-            self.text_box.configure(state='disabled')
-            self.text_box.pack()
+                self.statsTextBox.insert(tk.END, key + ": " + str(value) + "\n")
+            self.statsTextBox.configure(state='disabled')
+            self.statsTextBox.pack()
 
     def createStatsWindow(self):
         if not self.statsWindow:
             self.statsWindow = tk.Tk()
             self.makeStatsDict()
             self.statsWindow.option_add("*font", "Roboto 14")
-            self.text_box = tk.Text(self.statsWindow, state='disabled', height=(1.2 * len(self.stats.keys())), width=25)
+            self.statsTextBox = tk.Text(self.statsWindow, state='disabled', height=(1.2 * len(self.stats.keys())), width=25)
             self.statsWindow.title("Stats")
             self.statsWindow.protocol("WM_DELETE_WINDOW", self.on_statsClosing)
             self.updateStatsWindow()
@@ -1021,6 +1024,30 @@ class View:
         else:
             self.statsWindow.destroy()
             self.statsWindow = None
+
+    def updateLocationStatsWindow(self):
+        if self.locationStatsWindow:
+            self.makeLocationStatsDict()
+            self.locationStatsTextBox.configure(state='normal')
+            self.locationStatsTextBox.delete("1.0", tk.END)
+            for key, value in self.stats.items():
+                self.locationStatsTextBox.insert(tk.END, key + ": " + str(value) + "\n")
+            self.locationStatsTextBox.configure(state='disabled')
+            self.locationStatsTextBox.pack()
+
+    def createLocationStatsWindow(self):
+        if not self.locationStatsWindow:
+            self.locationStatsWindow = tk.Tk()
+            self.makeLocationStatsDict()
+            self.locationStatsWindow.option_add("*font", "Roboto 14")
+            self.locationStatsTextBox = tk.Text(self.statsWindow, state='disabled', height=(1.2 * len(self.locationStats.keys())), width=25)
+            self.locationStatsWindow.title("Stats")
+            self.locationStatsWindow.protocol("WM_DELETE_WINDOW", self.on_locationStatsClosing)
+            self.updateLocationStatsWindow()
+
+        else:
+            self.locationStatsWindow.destroy()
+            self.locationStatsWindow = None
 
     # the main game loop
     def createWindow(self):  # TODO: if graph window closed, crash occurs
@@ -1131,6 +1158,10 @@ class View:
         while not self.quit:
             self.step()
         exit(0)
+
+    def makeLocationStatsDict(self):
+        self.locationStatsDict = {}
+        pass
 
 
 ''' 
