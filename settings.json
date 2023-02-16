@@ -105,8 +105,8 @@
     "random_seed": 0,
 
     "total_agents": {
-      "blue": 125,
-      "red": 125
+      "blue": 30,
+      "red": 30
     },
     "agent_distributions": {
       "blue": {
