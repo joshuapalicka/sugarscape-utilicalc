@@ -375,6 +375,7 @@ class View:
 
         # init view
 
+        self.locationStatsDict = None
         self.locationStatsWindow = None
         self.update = None
         self.stats = {}
@@ -627,6 +628,7 @@ class View:
         self.iteration += 1
         env.incrementTime()
         self.updateStatsWindow()
+        self.updateLocationStatsWindow()
 
     # Determines which color each square should be
     def getFillColor(self, row, col):
@@ -701,24 +703,21 @@ class View:
             self.stats["Proportion of Infected Agents"] = round(
                 sum(self.proportionInfectedAgents) / len(self.proportionInfectedAgents), round_to)
 
-    def onClick(self, event):
-        squareAtX = event.x - 5  # subtract 5 to account for small amount of padding on grid
-        squareAtY = event.y - 5
-        squareSize = screenSize[0] // gridSize[0]
-        column = squareAtX // squareSize
-        row = squareAtY // squareSize
 
-        sugarAtClick = self.env.getSugarAmt((column, row))
-        spiceAtClick = self.env.getSpiceAmt((column, row))
+    def makeLocationStatsDict(self, row, col):
+        self.locationStatsDict = {}
+        sugarAtClick = self.env.getSugarAmt((col, row))
+        spiceAtClick = self.env.getSpiceAmt((col, row))
         print("Sugar and spice at click: ", sugarAtClick, spiceAtClick)
-        agentAtClick = self.env.getAgent((column, row))
+        agentAtClick = self.env.getAgent((col, row))
         if agentAtClick:
             agent = agentAtClick
             agent.getSugar()
             agent.getSpice()
-            agent.getLog()
+            agent.getLog()  # click button for this
             agent.getAge()
-            agent.getNumAfflictedDiseases()
+            if rules["disease"]:
+                agent.getNumAfflictedDiseases()
             agent.getChildren()
             agent.getSex()
             agent.getId()
@@ -727,6 +726,16 @@ class View:
             agent.getVision()
             agent.getSugarMetabolism()
             agent.getSpiceMetabolism()
+
+    def onClick(self, event):
+        squareAtX = event.x - 5  # subtract 5 to account for small amount of padding on grid
+        squareAtY = event.y - 5
+        squareSize = screenSize[0] // gridSize[0]
+        column = squareAtX // squareSize
+        row = squareAtY // squareSize
+        self.makeLocationStatsDict(row, column)
+        self.createLocationStatsWindow()
+
 
     def setQuit(self):
         self.quit = True
@@ -1043,11 +1052,8 @@ class View:
             self.locationStatsTextBox = tk.Text(self.statsWindow, state='disabled', height=(1.2 * len(self.locationStats.keys())), width=25)
             self.locationStatsWindow.title("Stats")
             self.locationStatsWindow.protocol("WM_DELETE_WINDOW", self.on_locationStatsClosing)
-            self.updateLocationStatsWindow()
+        self.updateLocationStatsWindow()
 
-        else:
-            self.locationStatsWindow.destroy()
-            self.locationStatsWindow = None
 
     # the main game loop
     def createWindow(self):  # TODO: if graph window closed, crash occurs
@@ -1159,9 +1165,6 @@ class View:
             self.step()
         exit(0)
 
-    def makeLocationStatsDict(self):
-        self.locationStatsDict = {}
-        pass
 
 
 ''' 
