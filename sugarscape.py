@@ -375,6 +375,9 @@ class View:
 
         # init view
 
+        self.onGraphs = None
+        self.offGraphs = None
+        self.graphOptions = None
         self.buttonFrame = None
         self.followAgentId = None
         self.followAgent = False
@@ -422,9 +425,11 @@ class View:
 
         # init time
         self.iteration = 0
+        self.locationStatsCanvasGridSize = settings["view"]["location_canvas_grid_size"]
 
         self.grid = [[(None, None) for __ in range(env.gridWidth)] for __ in range(env.gridHeight)]
-        self.locationStatsGrid = [[(None, None) for __ in range(3)] for __ in range(3)]
+        self.locationStatsGrid = [[(None, None) for __ in range(self.locationStatsCanvasGridSize)] for __ in
+                                  range(self.locationStatsCanvasGridSize)]
 
         # init tkinter GUI items and variables
         self.figs = None
@@ -883,7 +888,7 @@ class View:
             self.agentColorScheme = 7
         elif selectedView == "By Number of Diseases":
             self.agentColorScheme = 8
-        self.updateWindow()
+        self.draw()
 
     def updateGraphList(self, *args):
         new_onGraph = self.lastSelectedGraph.get()
@@ -964,10 +969,33 @@ class View:
 
     # Make the stats dictionary for the stats window
     def makeStatsDict(self):
+        if self.iteration == 0:
+            self.stats = {
+                "Iteration": 0,
+                "Average Population": 0,
+                "Metabolism Mean": 0,
+                "Vision Mean": 0,
+                "Gini Coefficient": 0,
+                "Average Gini": 0,
+                "Average Wealth": 0
+            }
+
+            if rules["trade"]:
+                self.stats["Trade Price Mean"] = 0
+                self.stats["Trade Volume Mean"] = 0
+            if rules["foresight"]:
+                self.stats["Foresight Mean"] = 0
+            if rules["tags"]:
+                self.stats["Percent Blue Tags"] = 0
+            if rules["disease"]:
+                self.stats["Number of Infected Agents"] = 0
+                self.stats["Proportion of Infected Agents"] = 0
+            return
+
         round_to = 2
         self.stats = {
             "Iteration": self.iteration,
-            "Average Population": round((sum(self.population) / len(self.population)) if len(self.agents) > 0 else 0,
+            "Average Population": round((sum(self.population) / len(self.population)) if len(self.population) > 0 else 0,
                                         round_to),
             "Metabolism Mean": round(sum(self.metabolismMean) / len(self.metabolismMean), round_to),
             "Vision Mean": round(sum(self.visionMean) / len(self.visionMean), round_to),
@@ -1039,17 +1067,18 @@ class View:
             agent.getNumAfflictedDiseases() if agent else 0
 
     def drawLocationCanvas(self):
-        lCSiteSize = self.siteSize * 2
-        if self.locationStatsCanvas:
-            for row, col in product(range(3), range(3)):
+        lCSiteSize = 200 * (1/self.locationStatsCanvasGridSize)
+        if self.locationStatsWindow:
+            for row, col in product(range(self.locationStatsCanvasGridSize), range(self.locationStatsCanvasGridSize)):
                 x1 = 5 + (.5 * lCSiteSize) + row * lCSiteSize + (.5 * lCSiteSize)
                 y1 = 5 + (.5 * lCSiteSize) + col * lCSiteSize + (.5 * lCSiteSize)
                 x2 = 5 + (.5 * lCSiteSize) + row * lCSiteSize - (.5 * lCSiteSize)
                 y2 = 5 + (.5 * lCSiteSize) + col * lCSiteSize - (.5 * lCSiteSize)
 
-                fillColor = self.getFillColor(self.selectedColumn + (row - 1), self.selectedRow + (col - 1))
+                middle = self.locationStatsCanvasGridSize // 2
+                fillColor = self.getFillColor(self.selectedColumn + (row - middle), self.selectedRow + (col - middle))
 
-                centerBox = row == 1 and col == 1
+                centerBox = row == middle and col == middle
 
                 outline = "#C0C0C0"
                 if centerBox and fillColor != "grey":
@@ -1115,7 +1144,7 @@ class View:
         if self.locationStatsWindow:
             self.makeLocationStatsDict()
 
-            self.locationStatsTextBox = tk.Text(self.locationStatsWindow, state='disabled', width=20)
+            self.locationStatsTextBox = tk.Text(self.locationStatsWindow, state='disabled', height=(4 * len(self.locationStats["location"].keys())), width=30)
 
             self.locationStatsTextBox.configure(state='normal')
 
@@ -1158,7 +1187,6 @@ class View:
             self.locationStatsWindow = tk.Tk()
             self.buttonFrame = tk.Frame(self.locationStatsWindow)
 
-
             self.locationStatsWindow.option_add("*font", "Roboto 14")
             self.locationStatsCanvas = tk.Canvas(self.locationStatsWindow, bg='white')
 
@@ -1170,10 +1198,14 @@ class View:
 
             self.locationStatsWindow.title("Location Stats")
             self.locationStatsWindow.protocol("WM_DELETE_WINDOW", self.on_locationStatsClosing)
+
+            self.locationStatsCanvas.xview_scroll(int(290), "units")  # centers canvas
+            self.locationStatsCanvas.yview_scroll(int(110), "units")
+
         self.updateLocationStatsWindow()
 
     # the main game loop
-    def createWindow(self):  # TODO: if graph window closed, crash occurs
+    def createWindow(self):
         self.update = True
         plt.ion()
         self.figs = []
@@ -1216,7 +1248,7 @@ class View:
         self.btnGraphMenu.grid(row=0, column=3, sticky="nsew")
 
         self.btnEnvViewMenu = tk.Menubutton(self.mainWindow, text="Env Color",
-                                            relief=tk.RAISED)  # TODO: add more? If so, make like other menus
+                                            relief=tk.RAISED)
 
         self.viewMenu = tk.Menu(self.btnEnvViewMenu, tearoff=0)
 

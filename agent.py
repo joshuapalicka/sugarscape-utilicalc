@@ -1082,7 +1082,8 @@ class Agent:
         best_sugar = self.env.getSugarAmt((newx, newy))
         best_spice = self.env.getSpiceAmt((newx, newy))
         self.setSugar(max(self.sugar + best_sugar, 0), "Move")
-        self.setSpice(max(self.spice + best_spice, 0), "Move")
+        if self.env.getHasSpice():
+            self.setSpice(max(self.spice + best_spice, 0), "Move")
 
         self.env.setSugarAmt((self.x, self.y), 0)
         self.env.setSpiceAmt((self.x, self.y), 0)

@@ -98,7 +98,8 @@
     },
     "graph_update_frequency": 1,
     "bound_graph_data": true,
-    "bound_to_n_deviations": 2
+    "bound_to_n_deviations": 2,
+    "location_canvas_grid_size": 5
   },
   "env": {
     "is_random": false,
