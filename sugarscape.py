@@ -7,6 +7,7 @@ Updated/extended by joshuapalicka
 """
 import datetime
 import math
+import os
 import random
 import sys
 import time
@@ -1348,6 +1349,10 @@ class View:
         exit(0)
 
     def createLogFile(self):
+        # check if logs folder exists
+        if not os.path.exists("./logs"):
+            os.makedirs("./logs")
+
         # create log file with all the items in settings.json and items in self.log()
         logFileName = "log_" + str(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")) + ".txt"
         logFile = open("./logs/" + logFileName, "w")
@@ -1360,7 +1365,7 @@ class View:
             logFile.write("Random Seed: " + str(seed) + "\n")
 
         logFile.write("\nStat lists:\n")
-        logFile.write("\nMetabolism Mean:\n")
+        logFile.write("Metabolism Mean:\n")
         logFile.write(", ".join(str(round(x, 4)) for x in self.metabolismMean))
         logFile.write("\n")
 
