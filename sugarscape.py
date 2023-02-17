@@ -5,9 +5,10 @@ Created on 2010-04-17
 
 Updated/extended by joshuapalicka
 """
-
+import datetime
 import math
 import random
+import sys
 import time
 from itertools import product
 from environment import Environment
@@ -111,6 +112,8 @@ numStartingDiseases = rule_params["disease"]["num_starting_diseases"]
 
 selfInterestScale = rule_params["utilicalc"]["self_interest_scale"]
 
+createLogFileOnExit = settings["view"]["create_log_on_exit"]
+
 rules = settings["rules"]
 
 if rules["tags"]:
@@ -151,6 +154,10 @@ if rules["combat"]:
 
 if not isRandom:
     random.seed(settings["env"]["random_seed"])
+
+else:
+    seed = random.randrange(sys.maxsize)
+    random.seed(seed)
 
 
 class ConflictingRuleException(Exception):
@@ -368,6 +375,9 @@ View Class
 '''
 
 
+
+
+
 class View:
 
     # this gets called first
@@ -375,6 +385,8 @@ class View:
 
         # init view
 
+        self.prevSelectedRow = None
+        self.prevSelectedCol = None
         self.onGraphs = None
         self.offGraphs = None
         self.graphOptions = None
@@ -386,7 +398,7 @@ class View:
 
         self.btnPrintLog = None
         self.selectedRow = None
-        self.selectedColumn = None
+        self.selectedCol = None
         self.locationStats = None
         self.locationStatsWindow = None
         self.update = None
@@ -420,6 +432,8 @@ class View:
         self.foresightMean = []
         self.numInfectedAgents = []
         self.proportionInfectedAgents = []
+
+        self.log = []
 
         self.statsWindow = None
 
@@ -673,12 +687,17 @@ class View:
         return fillColor
 
     def draw(self):
-        for row, col in product(range(len(self.grid)), range(len(self.grid[0]))):
+        for row, col in product(range(len(self.grid[0])), range(len(self.grid[1]))):
             fillColor = self.getFillColor(row, col)
             if self.grid[row][col][
-                1] != fillColor:  # only change fill color if the site wasn't already that color (performance optimization)
-                self.canvas.itemconfig(self.grid[row][col][0], fill=fillColor)
+                1] != fillColor or (self.prevSelectedCol == row and self.prevSelectedRow == col):  # only change fill color if the site wasn't already that color (performance optimization)
+                self.canvas.itemconfig(self.grid[row][col][0], fill=fillColor, outline="#C0C0C0")
                 self.grid[row][col] = (self.grid[row][col][0], fillColor)
+
+            # if site is selected, outline it in red and set it on top of other sites
+            if row == self.selectedCol and col == self.selectedRow:  # not sure why this is backwards
+                self.canvas.itemconfig(self.grid[row][col][0], outline="black")
+                self.canvas.tag_raise(self.grid[row][col][0])
 
     # creates tkinter rectangle object for each square in the environment
     def initialDraw(self):
@@ -966,6 +985,9 @@ class View:
     def on_locationStatsClosing(self):
         self.locationStatsWindow.destroy()
         self.locationStatsWindow = None
+        self.prevSelectedRow, self.prevSelectedCol = self.selectedRow, self.selectedCol
+        self.selectedRow, self.selectedCol = None, None
+        self.draw()
 
     # Make the stats dictionary for the stats window
     def makeStatsDict(self):
@@ -995,8 +1017,9 @@ class View:
         round_to = 2
         self.stats = {
             "Iteration": self.iteration,
-            "Average Population": round((sum(self.population) / len(self.population)) if len(self.population) > 0 else 0,
-                                        round_to),
+            "Average Population": round(
+                (sum(self.population) / len(self.population)) if len(self.population) > 0 else 0,
+                round_to),
             "Metabolism Mean": round(sum(self.metabolismMean) / len(self.metabolismMean), round_to),
             "Vision Mean": round(sum(self.visionMean) / len(self.visionMean), round_to),
             "Gini Coefficient": round(self.gini[-1], round_to),
@@ -1023,12 +1046,13 @@ class View:
         if self.followAgent:
             selectedAgent = self.env.findAgentById(self.followAgentId)
             if selectedAgent:
-                self.selectedColumn, self.selectedRow = self.env.findAgentById(self.followAgentId).getLocation()
+                self.prevSelectedCol, self.prevSelectedRow = self.selectedCol, self.selectedRow
+                self.selectedCol, self.selectedRow = self.env.findAgentById(self.followAgentId).getLocation()
             else:
                 self.selectAgent()
                 return
 
-        row = self.selectedColumn
+        row = self.selectedCol
         col = self.selectedRow
         self.locationStats = {"agent": {}, "location": {
             "x": row,
@@ -1067,8 +1091,8 @@ class View:
             agent.getNumAfflictedDiseases() if agent else 0
 
     def drawLocationCanvas(self):
-        lCSiteSize = 200 * (1/self.locationStatsCanvasGridSize)
         if self.locationStatsWindow:
+            lCSiteSize = 200 * (1 / self.locationStatsCanvasGridSize)
             for row, col in product(range(self.locationStatsCanvasGridSize), range(self.locationStatsCanvasGridSize)):
                 x1 = 5 + (.5 * lCSiteSize) + row * lCSiteSize + (.5 * lCSiteSize)
                 y1 = 5 + (.5 * lCSiteSize) + col * lCSiteSize + (.5 * lCSiteSize)
@@ -1076,7 +1100,7 @@ class View:
                 y2 = 5 + (.5 * lCSiteSize) + col * lCSiteSize - (.5 * lCSiteSize)
 
                 middle = self.locationStatsCanvasGridSize // 2
-                fillColor = self.getFillColor(self.selectedColumn + (row - middle), self.selectedRow + (col - middle))
+                fillColor = self.getFillColor(self.selectedCol + (row - middle), self.selectedRow + (col - middle))
 
                 centerBox = row == middle and col == middle
 
@@ -1102,12 +1126,13 @@ class View:
         y = squareAtY // squareSize
         x = squareAtX // squareSize
 
-        self.selectedColumn = x
-        self.selectedRow = y
+        self.prevSelectedCol, self.prevSelectedRow = self.selectedCol, self.selectedRow
+        self.selectedCol, self.selectedRow = x, y
 
         self.makeLocationStatsDict()
         self.createLocationStatsWindow()
         self.drawLocationCanvas()
+        self.draw()
 
     def updateStatsWindow(self):
         if self.statsWindow:
@@ -1144,7 +1169,8 @@ class View:
         if self.locationStatsWindow:
             self.makeLocationStatsDict()
 
-            self.locationStatsTextBox = tk.Text(self.locationStatsWindow, state='disabled', height=(4 * len(self.locationStats["location"].keys())), width=30)
+            self.locationStatsTextBox = tk.Text(self.locationStatsWindow, state='disabled',
+                                                height=(4 * len(self.locationStats["location"].keys())), width=30)
 
             self.locationStatsTextBox.configure(state='normal')
 
@@ -1302,18 +1328,89 @@ class View:
             # display info
             if self.update:
                 if rules["seasons"]:
-                    print("Iteration = ", self.iteration, "| fps = ", framerate, "| Seasons (N,S) = ", self.season,
-                          "| Population = ", len(self.agents))
+                    consoleOutput = "Iteration = " + str(self.iteration) + " | fps = " + str(framerate) + " | Seasons (N,S) = " + str(
+                        self.season) + " | Population = " + str(len(self.agents))
                 else:
-                    print("Iteration = ", self.iteration, "| fps = ", framerate, "| Population = ", len(self.agents))
+                    consoleOutput = "Iteration = " + str(self.iteration) + " | fps = " + str(framerate) + " | Population = " + str(
+                        len(self.agents))
+
+                print(consoleOutput)
+                self.log.append(consoleOutput)
 
         self.mainWindow.update()
 
     def updateWindow(self):
         while not self.quit:
             self.step()
+        if createLogFileOnExit:
+            self.createLogFile()
+
         exit(0)
 
+    def createLogFile(self):
+        # create log file with all the items in settings.json and items in self.log()
+        logFileName = "log_" + str(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")) + ".txt"
+        logFile = open("./logs/" + logFileName, "w")
+        logFile.write("\nSettings:\n")
+        # iterate through settings.json and write to log file
+        for key, value in settings.items():
+            logFile.write(str(key) + ": " + str(value) + "\n")
+
+        if isRandom:
+            logFile.write("Random Seed: " + str(seed) + "\n")
+
+        logFile.write("\nStat lists:\n")
+        logFile.write("\nMetabolism Mean:\n")
+        logFile.write(", ".join(str(round(x, 4)) for x in self.metabolismMean))
+        logFile.write("\n")
+
+        logFile.write("\nVision Mean:\n")
+        logFile.write(", ".join(str(round(x, 4)) for x in self.visionMean))
+        logFile.write("\n")
+
+        logFile.write("\nGini:\n")
+        logFile.write(", ".join(str(round(x, 4)) for x in self.gini))
+        logFile.write("\n")
+
+        if rules["tags"]:
+            logFile.write("\nPercent Blue Tags:\n")
+            logFile.write(", ".join(str(round(x, 4)) for x in self.percentBlueTags))
+            logFile.write("\n")
+
+        if rules["trade"]:
+            logFile.write("\nTrade Price Mean:\n")
+            logFile.write(", ".join(str(round(x, 4)) for x in self.tradePriceMean))
+            logFile.write("\n")
+
+            logFile.write("\nTrade Volume Mean:\n")
+            logFile.write(", ".join(str(round(x, 4)) for x in self.tradeVolumeMean))
+            logFile.write("\n")
+
+        if rules["foresight"]:
+            logFile.write("\nForesight Mean:\n")
+            logFile.write(", ".join(str(round(x, 4)) for x in self.foresightMean))
+            logFile.write("\n")
+
+        if rules["disease"]:
+            logFile.write("\nNum Infected Agents:\n")
+            logFile.write(", ".join(str(x) for x in self.numInfectedAgents))
+            logFile.write("\n")
+
+            logFile.write("\nProportion Infected Agents:\n")
+            logFile.write(", ".join(str(round(x, 4)) for x in self.proportionInfectedAgents))
+            logFile.write("\n")
+
+        # create stats dict
+        self.makeStatsDict()
+        logFile.write("\nEnding Stats:\n")
+        # iterate through self.stats and write to log file
+        for key, value in self.stats.items():
+            logFile.write(str(key) + ": " + str(value) + "\n")
+
+        logFile.write("\nLog:\n")
+        # iterate through self.log and write to log file
+        for item in self.log:
+            logFile.write(item + "\n")
 
 ''' 
 Main 

@@ -67,7 +67,7 @@
       "range_end": 10
     },
     "utilicalc": {
-      "self_interest_scale": 0.5
+      "self_interest_scale": null
     }
   },
 
@@ -99,10 +99,12 @@
     "graph_update_frequency": 1,
     "bound_graph_data": true,
     "bound_to_n_deviations": 2,
-    "location_canvas_grid_size": 5
+
+    "location_canvas_grid_size": 5,
+    "create_log_on_exit": true
   },
   "env": {
-    "is_random": false,
+    "is_random": true,
     "random_seed": 0,
 
     "total_agents": {
