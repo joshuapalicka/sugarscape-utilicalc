@@ -312,30 +312,30 @@ def hasStarved(agent):
 
 # Following functions are used to update the view. One of these functions (at a time) determines the color of each agent
 # The function that is used is determined by which Agent Color is selected in the GUI
-def all(agent):
+def colorAllRed(agent):
     return colors["red"]
 
 
-def bySex(agent):
+def colorBySex(agent):
     if agent.getSex() == female:
         return colors["pink"]
     else:
         return colors["blue"]
 
 
-def bySugarMetabolism(agent):
+def colorBySugarMetabolism(agent):
     return lightenColorByX(colors["red"], agent.getSugarMetabolism(), maxAgentMetabolism)
 
 
-def bySpiceMetabolism(agent):
+def colorBySpiceMetabolism(agent):
     return lightenColorByX(colors["red"], agent.getSpiceMetabolism(), maxAgentMetabolism)
 
 
-def byVision(agent):
+def colorByVision(agent):
     return lightenColorByX(colors["red"], agent.getVision(), maxAgentVision)
 
 
-def byGroup(agent):
+def colorByGroup(agent):
     #        if bin(agent.getTags()).count('1') > agent.getTagsLength()>>1:
     if agent.getTribe() == 1:
         return colors["red"]
@@ -343,15 +343,15 @@ def byGroup(agent):
         return colors["blue"]
 
 
-def byAge(agent):
+def colorByAge(agent):
     return lightenColorByX(colors["red"], agent.getAge(), minmaxAgentAge[1])
 
 
-def byWealth(agent):
+def colorByWealth(agent):
     return lightenColorByX(colors["red"], agent.getWealth(), 100)
 
 
-def byNumberOfDiseases(agent):
+def colorByNumberOfDiseases(agent):
     return lightenColorByX(colors["red"], agent.getNumAfflictedDiseases(), numDiseases)
 
 
@@ -373,16 +373,12 @@ View Class
 '''
 
 
-
-
-
 class View:
 
     # this gets called first
     def __init__(self, screenSize, env, agents):
 
         # init view
-
         self.prevSelectedRow = None
         self.prevSelectedCol = None
         self.onGraphs = None
@@ -463,8 +459,8 @@ class View:
         self.agentViewOptions = None
 
     # Maps the agent color scheme number to which function determines the color of each agent
-    agentColorSchemes = {0: all, 1: bySex, 2: bySugarMetabolism, 3: byVision, 4: byGroup, 5: byAge, 6: byWealth,
-                         7: bySpiceMetabolism, 8: byNumberOfDiseases}
+    agentColorSchemes = {0: colorAllRed, 1: colorBySex, 2: colorBySugarMetabolism, 3: colorByVision, 4: colorByGroup, 5: colorByAge, 6: colorByWealth,
+                         7: colorBySpiceMetabolism, 8: colorByNumberOfDiseases}
 
     # replace or remove agent, and determine if it's necessary to split wealth to children
     def removeAgent(self, agent):
@@ -688,7 +684,8 @@ class View:
         for row, col in product(range(len(self.grid[0])), range(len(self.grid[1]))):
             fillColor = self.getFillColor(row, col)
             if self.grid[row][col][
-                1] != fillColor or (self.prevSelectedCol == row and self.prevSelectedRow == col):  # only change fill color if the site wasn't already that color (performance optimization)
+                1] != fillColor or (
+                    self.prevSelectedCol == row and self.prevSelectedRow == col):  # only change fill color if the site wasn't already that color (performance optimization)
                 self.canvas.itemconfig(self.grid[row][col][0], fill=fillColor, outline="#C0C0C0")
                 self.grid[row][col] = (self.grid[row][col][0], fillColor)
 
@@ -1326,10 +1323,12 @@ class View:
             # display info
             if self.update:
                 if rules["seasons"]:
-                    consoleOutput = "Iteration = " + str(self.iteration) + " | fps = " + str(framerate) + " | Seasons (N,S) = " + str(
+                    consoleOutput = "Iteration = " + str(self.iteration) + " | fps = " + str(
+                        framerate) + " | Seasons (N,S) = " + str(
                         self.season) + " | Population = " + str(len(self.agents))
                 else:
-                    consoleOutput = "Iteration = " + str(self.iteration) + " | fps = " + str(framerate) + " | Population = " + str(
+                    consoleOutput = "Iteration = " + str(self.iteration) + " | fps = " + str(
+                        framerate) + " | Population = " + str(
                         len(self.agents))
 
                 print(consoleOutput)
@@ -1412,6 +1411,7 @@ class View:
         # iterate through self.log and write to log file
         for item in self.log:
             logFile.write(item + "\n")
+
 
 ''' 
 Main 
