@@ -23,13 +23,14 @@ class Environment:
 
         """
         Grid is indexed by: 
-        [i][j][0] = sugar amount (amt currently stored), 
-        [i][j][1] = spice amount (amt currently stored), 
+        [i][j][0] = sugar amount (amt currently at site), 
+        [i][j][1] = spice amount (amt currently at site) (if spice is not enabled, this is 0 everywhere)
         [i][j][2] = max sugar capacity, 
-        [i][j][3] = max spice capacity, 
+        [i][j][3] = max spice capacity (if spice is not enabled, this is 0 everywhere)
         [i][j][4] = agent, 
-        [i][j][5] = amount of pollution 
+        [i][j][5] = amount of pollution (if pollution is not enabled, this is 0 everywhere)
         """
+
         self.grid = [[[0, 0, 0, 0, None, 0.0] for _ in range(width)] for _ in range(height)]
 
         # these are set to True if the rule is enabled. They exist for easy reference by the agents
