@@ -484,6 +484,7 @@ class View:
             # replace with agent of same tribe
             tags = agent.getTags()
             newAgent = Agent(env)
+            self.appendToLog(" and was replaced by new agent " + str(newAgent.getId()), addToPreviousLine=True)
             if initAgent(newAgent, tags, findDistribution(tags)):
                 self.env.setAgent(newAgent.getLocation(), newAgent)
                 self.agents.append(newAgent)
@@ -512,9 +513,10 @@ class View:
                 agent.move()
 
             if rules["utilicalc"]:
-                deadAgent = agent.utilicalcMove()
-                if deadAgent:
-                    self.removeAgent(deadAgent)
+                killed = agent.utilicalcMove()
+                if killed:
+                    self.appendToLog("Agent " + str(agent.getId()) + " killed " + str(killed.getId()), indent="    ")
+                    self.removeAgent(killed)
 
             # COMBAT
             if rules["combat"] and not rules["utilicalc"]:
@@ -522,6 +524,7 @@ class View:
                 # if an agent has been killed, remove it
                 if killed:
                     # do not free the environment, someone else is already here
+                    self.appendToLog("Agent " + str(agent.getId()) + " killed " + str(killed.getId()), indent="    ")
                     self.removeAgent(killed)
 
             if rules["credit"]:
@@ -534,7 +537,9 @@ class View:
                 while canMate:
                     try:
                         # if a new baby is born, append it to the agents' list
-                        self.agents.append(next(mateItr))
+                        parent, babyAgent = next(mateItr)
+                        self.agents.append(babyAgent)
+                        self.appendToLog("Agent " + str(agent.getId()) + " mated with agent " + str(parent.getId()) + " and created agent " + str(babyAgent.getId()), indent="    ")
                     except StopIteration:
                         canMate = False
 
@@ -579,6 +584,10 @@ class View:
                 # free environment
                 self.env.setAgent(agent.getLocation(), None)
                 # remove or replace agent
+                if rules["limitedLifespan"] and agent.age > agent.maxAge:
+                    self.appendToLog("Agent " + str(agent.getId()) + " died of old age", indent="    ")
+                else:
+                    self.appendToLog("Agent " + str(agent.getId()) + " died of starvation", indent="    ")
                 self.removeAgent(agent)
 
         # Log population
@@ -1332,7 +1341,7 @@ class View:
                         len(self.agents))
 
                 print(consoleOutput)
-                self.log.append(consoleOutput)
+                self.appendToLog(consoleOutput, indent= "\n")
 
         self.mainWindow.update()
 
@@ -1343,6 +1352,12 @@ class View:
             self.createLogFile()
 
         exit(0)
+
+    def appendToLog(self, text, indent="", addToPreviousLine=False):
+        if not addToPreviousLine:
+            self.log.append(indent + "" + text)
+        else:
+            self.log[-1] += (indent + "" + text)
 
     def createLogFile(self):
         # check if logs folder exists

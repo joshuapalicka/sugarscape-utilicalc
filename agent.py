@@ -742,7 +742,7 @@ class Agent:
         parent.addLogEntry(str("create child: " + str(childId)))
         self.addChildId(childId)
         parent.addChildId(childId)
-        return child
+        return parent, child
 
     """
     Concept: Fertility
@@ -895,11 +895,14 @@ class Agent:
 
         # if this agent will be killed by a move here
         elif pMove == agent.getLocation():
-            fcVars["intensity"] = 100  # agent will be killed TODO: Make less arbitrary
+            daysToDeath = agent.getDaysToStarvation()
+            if daysToDeath == 0:
+                daysToDeath = .1
+            fcVars["intensity"] = daysToDeath  # agent will be killed
             fcVars["duration"] = 1
             fcVars["certainty"] = 1
 
-        # Only care about other agent moves if they are of the same tribe
+        # If they are of the same tribe
         elif agent.getTribe() == self.getTribe():
             daysToDeath = agent.getDaysToStarvation()
             if daysToDeath == 0:
@@ -911,7 +914,7 @@ class Agent:
             if agentOnSite and agentOnSite.getTags() != agent.getTags():
                 # if it is not a battle the current agent can win, do not consider the move
                 if (agent.sugar + self.env.getSugarAmt((pMove[0],
-                                                       pMove[1])) - self.sugarMetabolism) <= agentOnSite.sugar:
+                                                        pMove[1])) - self.sugarMetabolism) <= agentOnSite.sugar:
                     return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
 
@@ -919,6 +922,18 @@ class Agent:
             fcVars["duration"] = siteWealth / agent.sugarMetabolism
             fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
                 1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
+
+        # If they are of a different tribe
+        else:
+            agentOnSite = self.env.getAgent(pMove)
+            if agentOnSite and agentOnSite.getTags() == agent.getTags():
+                daysToDeath = agent.getDaysToStarvation()
+                if daysToDeath == 0:
+                    daysToDeath = .1
+
+                fcVars["intensity"] = daysToDeath
+                fcVars["duration"] = .5
+                fcVars["certainty"] = 1
 
     def utilicalcSpice(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
@@ -1070,7 +1085,8 @@ class Agent:
             killed = self.env.getAgent((newx, newy))
             if killed is not None:
                 self.addLogEntry("I killed Agent" + str(killed.getId) + "at" + str(killed.getLocation()))
-                self.setSugar(min(self.sugar + killed.sugar, self.sugar + self.env.getCombatAlpha()), "kill of agent " + str(killed.getId))
+                self.setSugar(min(self.sugar + killed.sugar, self.sugar + self.env.getCombatAlpha()),
+                              "kill of agent " + str(killed.getId))
 
         self.env.setAgent((self.x, self.y), None)
         self.env.setAgent((newx, newy), self)

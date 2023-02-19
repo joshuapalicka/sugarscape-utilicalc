@@ -7,9 +7,9 @@
     "pollution": false,
     "tags": true,
     "combat": true,
-    "limitedLifespan": false,
-    "replacement": false,
-    "procreate": false,
+    "limitedLifespan": true,
+    "replacement": true,
+    "procreate": true,
     "transmit": false,
     "spice": false,
     "trade": false,
@@ -108,8 +108,8 @@
     "random_seed": 18,
 
     "total_agents": {
-      "blue": 30,
-      "red": 30
+      "blue": 100,
+      "red": 100
     },
     "agent_distributions": {
       "blue": {
