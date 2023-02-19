@@ -105,7 +105,7 @@
   },
   "env": {
     "is_random": true,
-    "random_seed": 0,
+    "random_seed": 18,
 
     "total_agents": {
       "blue": 30,

@@ -153,12 +153,9 @@ isRandom = settings["env"]["is_random"]
 if rules["combat"]:
     combatAlpha = rule_params["combat"]["alpha"]
 
-if not isRandom:
-    random.seed(settings["env"]["random_seed"])
+seed = settings["env"]["random_seed"] if isRandom else random.randrange(sys.maxsize)
 
-else:
-    seed = random.randrange(sys.maxsize)
-    random.seed(seed)
+random.seed(seed)
 
 
 class ConflictingRuleException(Exception):
@@ -1361,8 +1358,7 @@ class View:
         for key, value in settings.items():
             logFile.write(str(key) + ": " + str(value) + "\n")
 
-        if isRandom:
-            logFile.write("Random Seed: " + str(seed) + "\n")
+        logFile.write("Seed: " + str(seed) + "\n")
 
         logFile.write("\nStat lists:\n")
         logFile.write("Metabolism Mean:\n")
