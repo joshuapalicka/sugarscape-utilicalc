@@ -944,15 +944,6 @@ class Agent:
         fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
             1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
 
-    def utilicalcCredit(self, agent, pMove, fcVars):
-        # agents could be divided into potential lenders and potential creditors
-        # how will lending and crediting be done?
-        # will there be social penalties for being behind on payments?
-        # Should we always lend or borrow if we can just like trade? If not, it doesn't seem to make sense that we move depending on credit
-        #   perhaps it should be a separate decision?
-
-        pass
-
     def utilicalcDisease(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
 
