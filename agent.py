@@ -879,8 +879,7 @@ class Agent:
         # if we're moving
         if agent == self:
             daysToDeath = agent.getDaysToStarvation()
-            if daysToDeath == 0:
-                daysToDeath = .1
+
 
             agentOnSite = self.env.getAgent((pMove[0], pMove[1]))
 
@@ -889,15 +888,13 @@ class Agent:
                 if agentOnSite.getTags() == agent.getTags():
                     return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
-            fcVars["intensity"] = 1 / daysToDeath
+            fcVars["intensity"] = 1 / (1+daysToDeath)
             fcVars["duration"] = siteWealth / agent.sugarMetabolism
             fcVars["certainty"] = 1  # certainty is their distance from the food. 0 if they cannot see the food.
 
         # if this agent will be killed by a move here
         elif pMove == agent.getLocation():
             daysToDeath = agent.getDaysToStarvation()
-            if daysToDeath == 0:
-                daysToDeath = .1
             fcVars["intensity"] = daysToDeath  # agent will be killed
             fcVars["duration"] = 1
             fcVars["certainty"] = 1
@@ -905,8 +902,6 @@ class Agent:
         # If they are of the same tribe
         elif agent.getTribe() == self.getTribe():
             daysToDeath = agent.getDaysToStarvation()
-            if daysToDeath == 0:
-                daysToDeath = .1
 
             agentOnSite = self.env.getAgent((pMove[0], pMove[1]))
             siteWealth = self.env.getSugarAmt((pMove[0], pMove[1]))
@@ -918,7 +913,7 @@ class Agent:
                     return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
 
-            fcVars["intensity"] = 1 / daysToDeath
+            fcVars["intensity"] = 1 / (1+daysToDeath)
             fcVars["duration"] = siteWealth / agent.sugarMetabolism
             fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
                 1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
@@ -928,8 +923,6 @@ class Agent:
             agentOnSite = self.env.getAgent(pMove)
             if agentOnSite and agentOnSite.getTags() == agent.getTags():
                 daysToDeath = agent.getDaysToStarvation()
-                if daysToDeath == 0:
-                    daysToDeath = .1
 
                 fcVars["intensity"] = daysToDeath
                 fcVars["duration"] = .5
@@ -975,10 +968,8 @@ class Agent:
         agentX, agentY = agent.x, agent.y
         sugarCapacity = self.env.getSugarAmt(pMove)
         daysToDeath = agent.getDaysToStarvation()
-        if daysToDeath == 0:
-            daysToDeath = .1
 
-        fcVars["intensity"] = 1 / daysToDeath
+        fcVars["intensity"] = 1 / (1 + daysToDeath)
         fcVars["duration"] = sugarCapacity / agent.sugarMetabolism
         fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
             1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
@@ -998,13 +989,13 @@ class Agent:
         # list of agents
         agents = self.getVisionNeighbourhood()
         agents.append(self)
-        decisions = fc.EvaluateDecisions()
+        actions = fc.ActionSelector()
 
         if self.env.getSelfInterestScale() is not None:
-            decisions.setSelfInterestScale(self.env.getSelfInterestScale())
+            actions.setSelfInterestScale(self.env.getSelfInterestScale())
 
         for pMove in potentialMoves:
-            currentDecision = fc.Decision()
+            currentAction = fc.Act()
             for agent in agents:
                 agentX, agentY = agent.getLocation()
                 if agentX == pMove[0] or agentY == pMove[1]:  # if agent not on a same axis, ignore for this location
@@ -1042,10 +1033,7 @@ class Agent:
                     if self.env.getHasDisease():
                         self.utilicalcDisease(agent, pMove, fcVars)
 
-                    if self.env.getHasCredit():
-                        self.utilicalcCredit(agent, pMove, fcVars)
-
-                    currentDecision.createAgent(
+                    currentAction.createActor(
                         isPleasure=fcVars["isPleasure"],
                         intensity=fcVars["intensity"],
                         duration=fcVars["duration"],
@@ -1064,9 +1052,9 @@ class Agent:
                         extent=fcVars["extent"],
                         isDecisionMaker=(agent == self)
                     )
-            decisions.addDecision(str(pMove[0]) + "," + str(pMove[1]), currentDecision)
-        bestMoves = decisions.getListOfDecisionsWithHighestValue()
-        # decisions.printMoralValueForAllDecisions()
+            actions.addAct(str(pMove[0]) + "," + str(pMove[1]), currentAction)
+        bestMoves = actions.getListOfActsWithHighestValue()
+        # actions.printMoralValueForAllDecisions()
         bestMove = random.choice(bestMoves)
         newx, newy = bestMove.split(",")
         newx, newy = int(newx), int(newy)

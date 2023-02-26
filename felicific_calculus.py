@@ -24,11 +24,11 @@ Variables:
     E = how many people are affected by the pain
 
 Formula:
-    For each agent (or group of agents equally) affected by the action, the moral value of the action is calculated as follows:
+    For each actor (or group of actors equally) affected by the action, the moral value of the action is calculated as follows:
         C * (I * D * N * E) must be calculated for each pleasure and pain, and for each 2nd order pleasure and pain.
         For 2nd order pleasure and pain, the same formula is used, but C is replaced with F or P, respectively.
         Pain is calculated as a negative value, and pleasure is calculated as a positive value.
-        The sum of all of these values is the moral value of the action for this/these agent(s).
+        The sum of all of these values is the moral value of the action for this/these actor(s).
 
     All of these values are summed together to get the total moral value of an action.
 """
@@ -37,9 +37,9 @@ import math
 import random
 
 
-class Agent:
+class Actor:
     """
-    This class is used to calculate the moral value of an action on an agent/agents.
+    This class is used to calculate the moral value of an action on an actor/actors.
 
     Variables:
     isPleasure = whether the action is a pleasure or pain (if false, output of this consequence is multiplied by -1)
@@ -113,36 +113,36 @@ class Agent:
         return sum([x for x in self.consequences if x < 0])
 
 
-class Decision:
+class Act:
     """
-    This class is used to calculate the moral value of a decision on agents.
+    This class is used to calculate the moral value of an act on actors.
 
     Variables:
     self_interest_scale = the scale of self-interest (0 = altruistic, 1 = egoistic)
-    agents = a list of agents affected by the decision
+    actors = a list of actors affected by the act
 
     Methods:
-        createAgent() creates an agent to add to the decision
-        getMoralValue() returns the summed moral value of the decision for all agents
+        createActor() creates an actor to add to the act
+        getMoralValue() returns the summed moral value of the act for all actors
         setSelfInterestScale() sets the self-interest scale
-        checkForDecisionMaker() checks if there is a decision maker among the agents
+        checkForActMaker() checks if there is a act maker among the actors
     """
 
     def __init__(self, selfInterestScale=None):
         self.selfInterestScale = selfInterestScale
-        self.agents = []
+        self.actors = []
 
-    def createAgent(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+    def createActor(self, isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
                     f_intensity=0, f_duration=0, f_propinquity=0, f_extent=0,
                     p_intensity=0, p_duration=0, p_propinquity=0, p_extent=0, isDecisionMaker=False):
 
-        self.agents.append(
-            (Agent(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
+        self.actors.append(
+            (Actor(isPleasure, intensity, duration, certainty, propinquity, fecundity, purity, extent,
                    f_intensity, f_duration, f_propinquity, f_extent,
                    p_intensity, p_duration, p_propinquity, p_extent), True if isDecisionMaker else False))
 
-    def getAgents(self):
-        return self.agents
+    def getActors(self):
+        return self.actors
 
     def getSelfInterestScale(self):
         return self.selfInterestScale
@@ -153,129 +153,129 @@ class Decision:
     def getMoralValue(self):
         totalMoralValue = 0
 
-        for agent in self.agents:
+        for actor in self.actors:
             if self.selfInterestScale is not None:
-                if agent[1]:
-                    totalMoralValue += agent[0].getMoralValue() * self.selfInterestScale
+                if actor[1]:
+                    totalMoralValue += actor[0].getMoralValue() * self.selfInterestScale
                 else:
-                    totalMoralValue += agent[0].getMoralValue() * (1 - self.selfInterestScale)
+                    totalMoralValue += actor[0].getMoralValue() * (1 - self.selfInterestScale)
             else:
-                totalMoralValue += agent[0].getMoralValue()
+                totalMoralValue += actor[0].getMoralValue()
 
         return totalMoralValue
 
     def getNegativeMoralValue(self):
         totalMoralValue = 0
 
-        for agent in self.agents:
+        for actor in self.actors:
             if self.selfInterestScale is not None:
-                if agent[1]:
-                    totalMoralValue += agent[0].getNegativeMoralValue() * self.selfInterestScale
+                if actor[1]:
+                    totalMoralValue += actor[0].getNegativeMoralValue() * self.selfInterestScale
                 else:
-                    totalMoralValue += agent[0].getNegativeMoralValue() * (1 - self.selfInterestScale)
+                    totalMoralValue += actor[0].getNegativeMoralValue() * (1 - self.selfInterestScale)
             else:
-                totalMoralValue += agent[0].getNegativeMoralValue()
+                totalMoralValue += actor[0].getNegativeMoralValue()
 
         return totalMoralValue
 
-    def hasDecisionMaker(self):
-        for agent in self.agents:
-            if agent[1]:
+    def hasActMaker(self):
+        for actor in self.actors:
+            if actor[1]:
                 return True
         return False
 
 
-class EvaluateDecisions:
+class ActionSelector:
     """
-    Evaluates multiple decisions, which are added to this object
+    Evaluates multiple acts, which are added to this object
 
     Variables:
     selfInterestScale = the scale of self-interest (0 = altruistic, 1 = egoistic)
-    decisions = the decisions to be evaluated
+    acts = the acts to be evaluated
 
     Methods:
-        addDecision() adds a decision to the list of decisions
-        setSelfInterestScale() sets the self-interest scale for all decisions
-        printMoralValueForAllDecisions() prints the moral value for all decisions
-        printBestDecision() prints the decision with the highest moral value
-        getBestDecision() returns the name of the decision with the highest moral value
+        addAct() adds a act to the list of acts
+        setSelfInterestScale() sets the self-interest scale for all acts
+        printMoralValueForAllActs() prints the moral value for all acts
+        printBestAct() prints the act with the highest moral value
+        getBestAct() returns the name of the act with the highest moral value
     """
 
     def __init__(self):
         self.selfInterestScale = None
-        self.decisions = []
+        self.acts = []
 
     def getSelfInterestScale(self):
         return self.selfInterestScale
 
-    def getDecisions(self):
-        return self.decisions
+    def getActs(self):
+        return self.acts
 
-    def addDecision(self, decisionName, decision):
+    def addAct(self, actName, act):
         if self.setSelfInterestScale is not None:
-            decision.setSelfInterestScale(self.selfInterestScale)
-        self.decisions.append((decisionName, decision))
+            act.setSelfInterestScale(self.selfInterestScale)
+        self.acts.append((actName, act))
         random.shuffle(
-            self.decisions)  # we randomize this so that, with equal moral values, we choose a random decision
+            self.acts)  # we randomize this so that, with equal moral values, we choose a random act
 
     def setSelfInterestScale(self, selfInterestScale):
         if selfInterestScale > 1 or selfInterestScale < 0:
             raise ValueError("Self interest scale must be between 0 and 1.")
 
-        for decision in self.decisions:
-            if not decision[1].hasDecisionMaker():
-                print("Warning: Decision " + decision[0] + " does not have a decision maker.")
+        for act in self.acts:
+            if not act[1].hasActMaker():
+                print("Warning: Act " + act[0] + " does not have a act maker.")
 
         self.selfInterestScale = selfInterestScale
-        for decision in self.decisions:
-            decision[1].setSelfInterestScale(selfInterestScale)
+        for act in self.acts:
+            act[1].setSelfInterestScale(selfInterestScale)
 
-    def printMoralValueForAllDecisions(self):
-        for decision in self.decisions:
-            print(decision[0] + ": " + str(decision[1].getMoralValue()))
+    def printMoralValueForAllActs(self):
+        for act in self.acts:
+            print(act[0] + ": " + str(act[1].getMoralValue()))
 
-    def printDecisionWithHighestValue(self):
-        bestDecisionName, bestDecision = max(self.decisions, key=lambda x: x[1].getMoralValue())
+    def printActWithHighestValue(self):
+        bestActName, bestAct = max(self.acts, key=lambda x: x[1].getMoralValue())
 
         print(
-            "The best decision from a standard Utilitarian perspective is: " + bestDecisionName + ". with a moral value of " + str(
-                bestDecision.getMoralValue()))
+            "The best act from a standard Utilitarian perspective is: " + bestActName + ". with a moral value of " + str(
+                bestAct.getMoralValue()))
 
-        if bestDecision.selfInterestScale is not None:
-            print("This decision was made with a self interest scale of " + str(bestDecision.selfInterestScale))
+        if bestAct.selfInterestScale is not None:
+            print("This act was made with a self interest scale of " + str(bestAct.selfInterestScale))
         print()
 
-    # prints the decision with the negative moral value closest to 0
-    def printDecisionWithLeastNegativeValue(self):
-        bestDecisionName, bestDecision = max(self.decisions, key=lambda x: x[1].getNegativeMoralValue())
+    # prints the act with the negative moral value closest to 0
+    def printActWithLeastNegativeValue(self):
+        bestActName, bestAct = max(self.acts, key=lambda x: x[1].getNegativeMoralValue())
         print(
-            "The best decision from a Negative Utilitarian perspective is: " + bestDecisionName + ". with a moral value of " + str(
-                bestDecision.getMoralValue()))
+            "The best act from a Negative Utilitarian perspective is: " + bestActName + ". with a moral value of " + str(
+                bestAct.getMoralValue()))
 
-        if bestDecision.selfInterestScale is not None:
-            print("This decision was made with a self interest scale of " + str(bestDecision.selfInterestScale))
+        if bestAct.selfInterestScale is not None:
+            print("This act was made with a self interest scale of " + str(bestAct.selfInterestScale))
         print()
 
-    def getDecisionWithHighestValue(self):
-        bestDecisionName, bestDecision = max(self.decisions, key=lambda x: x[1].getMoralValue())
-        return bestDecisionName
+    def getActWithHighestValue(self):
+        bestActName, bestAct = max(self.acts, key=lambda x: x[1].getMoralValue())
+        return bestActName
 
-    def getDecisionWithLeastNegativeValue(self):
-        bestDecisionName, bestDecision = max(self.decisions, key=lambda x: x[1].getNegativeMoralValue())
-        return bestDecisionName
+    def getActWithLeastNegativeValue(self):
+        bestActName, bestAct = max(self.acts, key=lambda x: x[1].getNegativeMoralValue())
+        return bestActName
 
-    def getListOfDecisionsWithHighestValue(self):
-        bestDecisionName, bestDecision = max(self.decisions, key=lambda x: x[1].getMoralValue())
-        listOfDecisions = []
-        for decision in self.decisions:
-            if decision[1].getMoralValue() == bestDecision.getMoralValue():
-                listOfDecisions.append(decision[0])
-        return listOfDecisions
+    def getListOfActsWithHighestValue(self):
+        bestActName, bestAct = max(self.acts, key=lambda x: x[1].getMoralValue())
+        listOfActs = []
+        for act in self.acts:
+            if act[1].getMoralValue() == bestAct.getMoralValue():
+                listOfActs.append(act[0])
+        return listOfActs
 
-    def getListOfDecisionsWithLeastNegativeValue(self):
-        bestDecisionName, bestDecision = max(self.decisions, key=lambda x: x[1].getNegativeMoralValue())
-        listOfDecisions = []
-        for decision in self.decisions:
-            if decision[1].getNegativeMoralValue() == bestDecision.getNegativeMoralValue():
-                listOfDecisions.append(decision[0])
-        return listOfDecisions
+    def getListOfActsWithLeastNegativeValue(self):
+        bestActName, bestAct = max(self.acts, key=lambda x: x[1].getNegativeMoralValue())
+        listOfActs = []
+        for act in self.acts:
+            if act[1].getNegativeMoralValue() == bestAct.getNegativeMoralValue():
+                listOfActs.append(act[0])
+        return listOfActs
