@@ -880,7 +880,6 @@ class Agent:
         if agent == self:
             daysToDeath = agent.getDaysToStarvation()
 
-
             agentOnSite = self.env.getAgent((pMove[0], pMove[1]))
 
             siteWealth = self.env.getSugarAmt((pMove[0], pMove[1]))
@@ -888,7 +887,7 @@ class Agent:
                 if agentOnSite.getTags() == agent.getTags():
                     return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
-            fcVars["intensity"] = 1 / (1+daysToDeath)
+            fcVars["intensity"] = 1 / (1 + daysToDeath)
             fcVars["duration"] = siteWealth / agent.sugarMetabolism
             fcVars["certainty"] = 1  # certainty is their distance from the food. 0 if they cannot see the food.
 
@@ -913,7 +912,7 @@ class Agent:
                     return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
 
-            fcVars["intensity"] = 1 / (1+daysToDeath)
+            fcVars["intensity"] = 1 / (1 + daysToDeath)
             fcVars["duration"] = siteWealth / agent.sugarMetabolism
             fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
                 1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
@@ -930,9 +929,12 @@ class Agent:
 
     def utilicalcSpice(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
-
+        #print(agent.getWelfare(x=pMove[0],y=pMove[1]))
         fcVars["intensity"] = agent.getWelfare(x=pMove[0],
                                                y=pMove[1])  # based off of how much they need sugar/spice
+        #w1 = self.sugar + self.env.getSugarAmt(pMove)
+        #w2 = self.spice + self.env.getSpiceAmt(pMove)
+        #fcVars["intensity"] = agent.getMRS(w1, w2)
         fcVars["duration"] = 1  # welfare function handles this
         fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
             1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
@@ -979,7 +981,7 @@ class Agent:
         self.previousWealth = self.getWealth()
 
         # build a list of available food locations
-        potentialMoves = self.getFood() if not self.env.getHasCombat else self.getFoodWithCombat(self.getPreys())
+        potentialMoves = self.getFood() if not self.env.getHasCombat() else self.getFoodWithCombat(self.getPreys())
 
         # randomize food locations
         random.shuffle(potentialMoves)
