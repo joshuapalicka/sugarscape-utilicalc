@@ -514,7 +514,7 @@ class View:
 
             if rules["utilicalc"]:
                 killed = agent.utilicalcMove()
-                if killed:
+                if killed and rules["combat"]:
                     self.appendToLog("Agent " + str(agent.getId()) + " killed " + str(killed.getId()), indent="    ")
                     self.removeAgent(killed)
 
@@ -1435,6 +1435,8 @@ Main
 if __name__ == '__main__':
 
     ruleCheck()
+
+    print("Seed: ", seed)
 
     env = Environment(gridSize)
 
