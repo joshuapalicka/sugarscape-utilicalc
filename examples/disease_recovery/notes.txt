@@ -1,0 +1,2 @@
+Follows p. 147 - uses disease length of 8, rather than variable length
+strangely enough, society does not fully recover quickly - one agent stays infected past timestep 600
