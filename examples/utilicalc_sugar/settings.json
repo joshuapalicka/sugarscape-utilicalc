@@ -7,11 +7,11 @@
     "pollution": false,
     "tags": false,
     "combat": false,
-    "limitedLifespan": true,
+    "limitedLifespan": false,
     "replacement": false,
-    "procreate": true,
+    "procreate": false,
     "transmit": false,
-    "spice": true,
+    "spice": false,
     "trade": false,
     "foresight": false,
     "credit": false,
@@ -156,15 +156,15 @@
     }
   },
     "agents": {
-      "max_agent_metabolism": 4,
-      "max_agent_vision": 8,
+      "max_agent_metabolism": 5,
+      "max_agent_vision": 5,
       "initial_endowments": {
-        "min": 50,
-        "max": 100
+        "min": 5,
+        "max": 30
       },
       "death_age_range": {
-        "min": 100,
-        "max": 120
+        "min": 60,
+        "max": 100
       },
       "fertility_age_ranges": {
         "male": {
