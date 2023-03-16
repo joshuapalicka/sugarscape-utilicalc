@@ -86,7 +86,11 @@
       "x": 50,
       "y": 50
     },
-    "env_color_hashes": {
+    "background_colors": {
+      "R": 250,
+      "G": 250,
+      "B": 250
+    }, "env_color_hashes": {
       "sugar": "#F2FA00",
       "spice": "#9B4722",
       "both": "#BF8232",
