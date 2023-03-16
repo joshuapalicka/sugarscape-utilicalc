@@ -359,27 +359,27 @@ class Agent:
 
     # build a list of available food locations
     def getFood(self):
-        food = [(x, self.y) for x in range(self.x - self.vision, self.x + self.vision + 1)
-                if self.env.isLocationValid((x, self.y))
-                and self.env.isLocationFree((x, self.y))]
+        food = [(x % self.env.gridWidth, self.y) for x in range(self.x - self.vision, self.x + self.vision + 1)
+                if self.env.isLocationValid((x % self.env.gridWidth, self.y))
+                and self.env.isLocationFree((x % self.env.gridWidth, self.y))]
 
-        food.extend([(self.x, y) for y in range(self.y - self.vision, self.y + self.vision + 1)
-                     if self.env.isLocationValid((self.x, y))
-                     and self.env.isLocationFree((self.x, y))])
+        food.extend([(self.x, y % self.env.gridHeight) for y in range(self.y - self.vision, self.y + self.vision + 1)
+                     if self.env.isLocationValid((self.x, y % self.env.gridHeight))
+                     and self.env.isLocationFree((self.x, y % self.env.gridHeight))])
         random.shuffle(food)
 
         return food
 
     # build a list of possible neighbours for in neighbourhood
     def getNeighbourhood(self):
-        neighbourhood = [self.env.getAgent((x, self.y)) for x in range(self.x - 1, self.x + 2)
-                         if self.env.isLocationValid((x, self.y))
-                         and not self.env.isLocationFree((x, self.y))
+        neighbourhood = [self.env.getAgent((x % self.env.gridWidth, self.y)) for x in range(self.x - 1, self.x + 2)
+                         if self.env.isLocationValid((x % self.env.gridWidth, self.y))
+                         and not self.env.isLocationFree((x % self.env.gridWidth, self.y))
                          and x != self.x]
 
-        neighbourhood.extend([self.env.getAgent((self.x, y)) for y in range(self.y - 1, self.y + 2)
-                              if self.env.isLocationValid((self.x, y))
-                              and not self.env.isLocationFree((self.x, y))
+        neighbourhood.extend([self.env.getAgent((self.x, y % self.env.gridHeight)) for y in range(self.y - 1, self.y + 2)
+                              if self.env.isLocationValid((self.x, y % self.env.gridHeight))
+                              and not self.env.isLocationFree((self.x, y % self.env.gridHeight))
                               and y != self.y])
 
         random.shuffle(neighbourhood)
@@ -388,16 +388,16 @@ class Agent:
 
     # build a list of neighbours within agent's vision range
     def getVisionNeighbourhood(self):
-        neighbourhood = [self.env.getAgent((x, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
-                         if self.env.isLocationValid((x, self.y))
-                         and not self.env.isLocationFree((x, self.y))
-                         and x != self.x]
+        neighbourhood = [self.env.getAgent((x % self.env.gridWidth, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
+                         if self.env.isLocationValid((x % self.env.gridWidth, self.y))
+                         and not self.env.isLocationFree((x % self.env.gridWidth, self.y))
+                         and x % self.env.gridWidth != self.x]
 
         neighbourhood.extend(
-            [self.env.getAgent((self.x, y)) for y in range(self.y - self.vision, self.y + self.vision + 1)
-             if self.env.isLocationValid((self.x, y))
-             and not self.env.isLocationFree((self.x, y))
-             and y != self.y])
+            [self.env.getAgent((self.x, y % self.env.gridHeight)) for y in range(self.y - self.vision, self.y + self.vision + 1)
+             if self.env.isLocationValid((self.x, y % self.env.gridHeight))
+             and not self.env.isLocationFree((self.x, y % self.env.gridHeight))
+             and y % self.env.gridHeight != self.y])
 
         random.shuffle(neighbourhood)
 
@@ -405,22 +405,21 @@ class Agent:
 
     # build a list of possible preys around
     def getPreys(self):
-        preys = [self.env.getAgent((x, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
-                 if self.env.isLocationValid((x, self.y))
-                 and not self.env.isLocationFree((x, self.y))
-                 and self.sugar > self.env.getAgent((x, self.y)).getSugar()
-                 and self.env.getAgent((x, self.y)).getTribe() != self.getTribe()]
+        preys = [self.env.getAgent((x % self.env.gridWidth, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
+                 if self.env.isLocationValid((x % self.env.gridWidth, self.y))
+                 and not self.env.isLocationFree((x % self.env.gridWidth, self.y))
+                 and self.sugar > self.env.getAgent((x % self.env.gridWidth, self.y)).getSugar()
+                 and self.env.getAgent((x % self.env.gridWidth, self.y)).getTribe() != self.getTribe()]
 
-        preys.extend([self.env.getAgent((self.x, y)) for y in range(self.y - self.vision, self.y + self.vision + 1)
-                      if self.env.isLocationValid((self.x, y))
-                      and not self.env.isLocationFree((self.x, y))
-                      and self.sugar > self.env.getAgent((self.x, y)).getSugar()
-                      and self.env.getAgent((self.x, y)).getTribe() != self.getTribe()])
+        preys.extend([self.env.getAgent((self.x, y % self.env.gridHeight)) for y in range(self.y - self.vision, self.y + self.vision + 1)
+                      if self.env.isLocationValid((self.x, y % self.env.gridHeight))
+                      and not self.env.isLocationFree((self.x, y % self.env.gridHeight))
+                      and self.sugar > self.env.getAgent((self.x, y % self.env.gridHeight)).getSugar()
+                      and self.env.getAgent((self.x, y % self.env.gridHeight)).getTribe() != self.getTribe()])
 
         random.shuffle(preys)
 
         return preys
-
     def getFoodWithCombat(self, prey_list):
         preys = prey_list
 
@@ -929,13 +928,10 @@ class Agent:
 
     def utilicalcSpice(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
-        #print(agent.getWelfare(x=pMove[0],y=pMove[1]))
+
         fcVars["intensity"] = agent.getWelfare(x=pMove[0],
                                                y=pMove[1])  # based off of how much they need sugar/spice
-        #w1 = self.sugar + self.env.getSugarAmt(pMove)
-        #w2 = self.spice + self.env.getSpiceAmt(pMove)
-        #fcVars["intensity"] = agent.getMRS(w1, w2)
-        fcVars["duration"] = 1  # welfare function handles this
+        fcVars["duration"] = 1  # TODO: change to delta time to live
         fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
             1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
 
