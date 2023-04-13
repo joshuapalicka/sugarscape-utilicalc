@@ -893,7 +893,7 @@ class Agent:
         # if this agent will be killed by a move here
         elif pMove == agent.getLocation():
             daysToDeath = agent.getDaysToStarvation()
-            fcVars["intensity"] = daysToDeath  # agent will be killed
+            fcVars["intensity"] = 1 - (1 / (1 + daysToDeath))  # agent will be killed
             fcVars["duration"] = 1
             fcVars["certainty"] = 1
 
@@ -926,6 +926,7 @@ class Agent:
                 fcVars["duration"] = .5
                 fcVars["certainty"] = 1
 
+    #TODO: Rewrite to match refactoring in utilicalcMove - does not refer to spice currently
     def utilicalcSpice(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
 
@@ -964,14 +965,24 @@ class Agent:
 
     def utilicalcSugar(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
-        sugarCapacity = self.env.getSugarAmt(pMove)
+        siteWealth = self.env.getSugarAmt(pMove)
         daysToDeath = agent.getDaysToStarvation()
 
         fcVars["intensity"] = 1 / (1 + daysToDeath)
-        fcVars["duration"] = sugarCapacity / agent.sugarMetabolism
+        fcVars["duration"] = siteWealth / agent.sugarMetabolism
         fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
             1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
 
+'''
+TODO: rework utilicalc movement functions to this form
+for move in potentialMoves:
+    # repeat next two lines for every option/toggle (e.g. combat, spice, trade)
+    for agent in visionNeighborhood:
+        compute utilicalc circumstances - dictionary key: (agent, move), value: [circumstances]
+    if self does move:
+        compute - dictionary key: move, value: visionNeighborhood's utility --> moveImpacts
+return max(moveImpacts)
+'''
     # alternative to move function - moves using felicific_calculus.py functions for moral decision making
     def utilicalcMove(self):
         self.previousWealth = self.getWealth()
