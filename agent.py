@@ -982,6 +982,25 @@ for move in potentialMoves:
     if self does move:
         compute - dictionary key: move, value: visionNeighborhood's utility --> moveImpacts
 return max(moveImpacts)
+
+We have concluded that intensity, duration, and certainty are correct. We need to normalize/scale them to either TTL or total resource value.
+Certainty will change once we implement a separation of movement and vision.
+Currently proximity is 1, because if you can see it, you can eat it. Again, this will change when we change movement from vision. (1/distance in time steps)
+Fecundity/purity are a single magical variable named futureBliss. The futureBliss variable represents the probability of future pleasure.
+Extent is # of agents in our vision.
+We will assume omniscience within our own neighborhood.
+
+utilicalcSugar:
+a.	Intensity: [0 : 1] (1/1+daysToDeath)
+b.	Duration: [0 : 1] [(cell site wealth / agent metabolism) / maxSiteWealth], which is rational
+c.  Certainty: [1 : 1] if agent can reach move cell, [0 : 0] otherwise
+d.  Proximity: [0 : 1] the (1/distance in time steps), which is currently 1
+e.  FutureBliss: [0 : 1] probability of immediate (or limited by computational horizon) future pleasure subsequent to this action
+f.  Extent: (0 : 1] number of agents in neighborhood  / #agents_visible_in_maxVision
+
+utility_of_cell = certainty * proximity * (intensity + duration + discount * futureBliss * futureReward??? + extent)
+We may wish to weight the variables inside the parenthesis based on some relative importance that we will make up, based on how we think Bentham thought.
+And of course, we will be right.
 '''
     # alternative to move function - moves using felicific_calculus.py functions for moral decision making
     def utilicalcMove(self):
