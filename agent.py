@@ -893,7 +893,7 @@ class Agent:
         # if this agent will be killed by a move here
         elif pMove == agent.getLocation():
             daysToDeath = agent.getDaysToStarvation()
-            fcVars["intensity"] = daysToDeath  # agent will be killed
+            fcVars["intensity"] = 1 - (1 / (1 + daysToDeath))  # agent will be killed
             fcVars["duration"] = 1
             fcVars["certainty"] = 1
 
@@ -926,6 +926,7 @@ class Agent:
                 fcVars["duration"] = .5
                 fcVars["certainty"] = 1
 
+    #TODO: Rewrite to match refactoring in utilicalcMove - does not refer to spice currently
     def utilicalcSpice(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
 
@@ -964,14 +965,43 @@ class Agent:
 
     def utilicalcSugar(self, agent, pMove, fcVars):
         agentX, agentY = agent.x, agent.y
-        sugarCapacity = self.env.getSugarAmt(pMove)
+        siteWealth = self.env.getSugarAmt(pMove)
         daysToDeath = agent.getDaysToStarvation()
 
         fcVars["intensity"] = 1 / (1 + daysToDeath)
-        fcVars["duration"] = sugarCapacity / agent.sugarMetabolism
+        fcVars["duration"] = siteWealth / agent.sugarMetabolism
         fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
             1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
 
+'''
+TODO: rework utilicalc movement functions to this form
+for move in potentialMoves:
+    # repeat next two lines for every option/toggle (e.g. combat, spice, trade)
+    for agent in visionNeighborhood:
+        compute utilicalc circumstances - dictionary key: (agent, move), value: [circumstances]
+    if self does move:
+        compute - dictionary key: move, value: visionNeighborhood's utility --> moveImpacts
+return max(moveImpacts)
+
+We have concluded that intensity, duration, and certainty are correct. We need to normalize/scale them to either TTL or total resource value.
+Certainty will change once we implement a separation of movement and vision.
+Currently proximity is 1, because if you can see it, you can eat it. Again, this will change when we change movement from vision. (1/distance in time steps)
+Fecundity/purity are a single magical variable named futureBliss. The futureBliss variable represents the probability of future pleasure.
+Extent is # of agents in our vision.
+We will assume omniscience within our own neighborhood.
+
+utilicalcSugar:
+a.	Intensity: [0 : 1] (1/1+daysToDeath)
+b.	Duration: [0 : 1] [(cell site wealth / agent metabolism) / maxSiteWealth], which is rational
+c.  Certainty: [1 : 1] if agent can reach move cell, [0 : 0] otherwise
+d.  Proximity: [0 : 1] the (1/distance in time steps), which is currently 1
+e.  FutureBliss: [0 : 1] probability of immediate (or limited by computational horizon) future pleasure subsequent to this action
+f.  Extent: (0 : 1] number of agents in neighborhood  / #agents_visible_in_maxVision
+
+utility_of_cell = certainty * proximity * (intensity + duration + discount * futureBliss * futureReward??? + extent)
+We may wish to weight the variables inside the parenthesis based on some relative importance that we will make up, based on how we think Bentham thought.
+And of course, we will be right.
+'''
     # alternative to move function - moves using felicific_calculus.py functions for moral decision making
     def utilicalcMove(self):
         self.previousWealth = self.getWealth()
