@@ -1051,43 +1051,43 @@ class Agent:
                 key = str(agent.id) + " " + str(move)
                 if self.env.getHasCombat():
                     combatCircumstances = self.utilicalcCombat(agent, move)
-                    for circType in combatCircumstances.keys():
-                        combatCircumstances[circType] *= baseWeight
+                    for circumstanceType in combatCircumstances.keys():
+                        combatCircumstances[circumstanceType] *= baseWeight
                     circumstances[key] = combatCircumstances
                     circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
                 elif self.env.getHasSpice():
                     spiceCircumstances = self.utilicalcSpice(agent, move)
-                    for circType in spiceCircumstances:
-                        spiceCircumstances[circType] *= baseWeight
+                    for circumstanceType in spiceCircumstances:
+                        spiceCircumstances[circumstanceType] *= baseWeight
                     circumstances[key] = spiceCircumstances
                     circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
                 else:
                     sugarCircumstances = self.utilicalcSugar(agent, move)
-                    for circType in sugarCircumstances:
-                        sugarCircumstances[circType] *= baseWeight
+                    for circumstanceType in sugarCircumstances:
+                        sugarCircumstances[circumstanceType] *= baseWeight
                     circumstances[key] = sugarCircumstances
                     circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
                 if self.env.getHasDisease():
                     diseaseCircumstances = self.utilicalcDisease(agent, move)
-                    for circType in diseaseCircumstances:
-                        if circType in circumstances[key]:
-                            circumstances[key][circType] += diseaseWeight * diseaseCircumstances[circType]
+                    for circumstanceType in diseaseCircumstances:
+                        if circumstanceType in circumstances[key]:
+                            circumstances[key][circumstanceType] += diseaseWeight * diseaseCircumstances[circumstanceType]
                         else:
-                            circumstances[key][circType] = diseaseWeight * diseaseCircumstances[circType]
+                            circumstances[key][circumstanceType] = diseaseWeight * diseaseCircumstances[circumstanceType]
 
                 if self.env.getHasPollution():
                     pollutionCircumstances = self.utilicalcPollution(agent, move)
-                    for circType in pollutionCircumstances:
-                        if circType in circumstances[key]:
-                            circumstances[key][circType] += pollutionWeight * pollutionCircumstances[circType]
+                    for circumstanceType in pollutionCircumstances:
+                        if circumstanceType in circumstances[key]:
+                            circumstances[key][circumstanceType] += pollutionWeight * pollutionCircumstances[circumstanceType]
                         else:
-                            circumstances[key][circType] = pollutionWeight * pollutionCircumstances[circType]
+                            circumstances[key][circumstanceType] = pollutionWeight * pollutionCircumstances[circumstanceType]
 
         # we now have circumstances for every location in vision and agent in vision at each location and need to
-        # calculate total cell utilities for each move? utility_of_cell = certainty * proximity * (intensity +
+        # calculate total cell utilities for each move. utility_of_cell = certainty * proximity * (intensity +
         # duration + discount * futureBliss * futureReward??? + extent)
 
         cellUtilities = {}
@@ -1097,7 +1097,6 @@ class Agent:
                 if str(agent.id) + " " + str(move) in circumstances:
                     locCirc = circumstances[str(agent.id) + " " + str(move)]  # location circumstances
                     agentUtility = 0
-                    # not including extent as this is covered because we are taking everyone nearby into account already
                     agentUtility += locCirc["certainty"] * locCirc["proximity"] * (
                                 locCirc["intensity"] + locCirc["duration"] + secondOrderDiscount * locCirc["futureBliss"] + locCirc["extent"])
                     agentUtility *= -1 if agent != self else 1
