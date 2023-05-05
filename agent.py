@@ -1051,40 +1051,40 @@ class Agent:
                 key = str(agent.id) + " " + str(move)
                 if self.env.getHasCombat():
                     combatCircumstances = self.utilicalcCombat(agent, move)
-                    for circumstanceType in combatCircumstances.keys():
-                        combatCircumstances[circumstanceType] *= baseWeight
+                    for circType in combatCircumstances.keys():
+                        combatCircumstances[circType] *= baseWeight
                     circumstances[key] = combatCircumstances
                     circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
                 elif self.env.getHasSpice():
                     spiceCircumstances = self.utilicalcSpice(agent, move)
-                    for circumstanceType in spiceCircumstances:
-                        spiceCircumstances[circumstanceType] *= baseWeight
+                    for circType in spiceCircumstances:
+                        spiceCircumstances[circType] *= baseWeight
                     circumstances[key] = spiceCircumstances
                     circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
                 else:
                     sugarCircumstances = self.utilicalcSugar(agent, move)
-                    for circumstanceType in sugarCircumstances:
-                        sugarCircumstances[circumstanceType] *= baseWeight
+                    for circType in sugarCircumstances:
+                        sugarCircumstances[circType] *= baseWeight
                     circumstances[key] = sugarCircumstances
                     circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
                 if self.env.getHasDisease():
                     diseaseCircumstances = self.utilicalcDisease(agent, move)
-                    for circumstanceType in diseaseCircumstances:
-                        if circumstanceType in circumstances[key]:
-                            circumstances[key][circumstanceType] += diseaseWeight * diseaseCircumstances[circumstanceType]
+                    for circType in diseaseCircumstances:
+                        if circType in circumstances[key]:
+                            circumstances[key][circType] += diseaseWeight * diseaseCircumstances[circType]
                         else:
-                            circumstances[key][circumstanceType] = diseaseWeight * diseaseCircumstances[circumstanceType]
+                            circumstances[key][circType] = diseaseWeight * diseaseCircumstances[circType]
 
                 if self.env.getHasPollution():
                     pollutionCircumstances = self.utilicalcPollution(agent, move)
-                    for circumstanceType in pollutionCircumstances:
-                        if circumstanceType in circumstances[key]:
-                            circumstances[key][circumstanceType] += pollutionWeight * pollutionCircumstances[circumstanceType]
+                    for circType in pollutionCircumstances:
+                        if circType in circumstances[key]:
+                            circumstances[key][circType] += pollutionWeight * pollutionCircumstances[circType]
                         else:
-                            circumstances[key][circumstanceType] = pollutionWeight * pollutionCircumstances[circumstanceType]
+                            circumstances[key][circType] = pollutionWeight * pollutionCircumstances[circType]
 
         # we now have circumstances for every location in vision and agent in vision at each location and need to
         # calculate total cell utilities for each move. utility_of_cell = certainty * proximity * (intensity +
@@ -1102,9 +1102,12 @@ class Agent:
                     agentUtility *= -1 if agent != self else 1
                     cellUtilities[move] += agentUtility
 
-        max_location = max(cellUtilities, key=cellUtilities.get)
+        max_utility = max(cellUtilities.values())
+        max_locations = [location for location, utility in cellUtilities.items() if utility == max_utility]
 
-        bestMove = max_location
+        random_max_location = random.choice(max_locations)
+
+        bestMove = random_max_location
         newx, newy = bestMove
 
         killed = None  # combat
