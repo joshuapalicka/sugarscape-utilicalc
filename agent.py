@@ -377,10 +377,11 @@ class Agent:
                          and not self.env.isLocationFree((x % self.env.gridWidth, self.y))
                          and x != self.x]
 
-        neighbourhood.extend([self.env.getAgent((self.x, y % self.env.gridHeight)) for y in range(self.y - 1, self.y + 2)
-                              if self.env.isLocationValid((self.x, y % self.env.gridHeight))
-                              and not self.env.isLocationFree((self.x, y % self.env.gridHeight))
-                              and y != self.y])
+        neighbourhood.extend(
+            [self.env.getAgent((self.x, y % self.env.gridHeight)) for y in range(self.y - 1, self.y + 2)
+             if self.env.isLocationValid((self.x, y % self.env.gridHeight))
+             and not self.env.isLocationFree((self.x, y % self.env.gridHeight))
+             and y != self.y])
 
         random.shuffle(neighbourhood)
 
@@ -388,13 +389,15 @@ class Agent:
 
     # build a list of neighbours within agent's vision range
     def getVisionNeighbourhood(self):
-        neighbourhood = [self.env.getAgent((x % self.env.gridWidth, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
+        neighbourhood = [self.env.getAgent((x % self.env.gridWidth, self.y)) for x in
+                         range(self.x - self.vision, self.x + self.vision + 1)
                          if self.env.isLocationValid((x % self.env.gridWidth, self.y))
                          and not self.env.isLocationFree((x % self.env.gridWidth, self.y))
                          and x % self.env.gridWidth != self.x]
 
         neighbourhood.extend(
-            [self.env.getAgent((self.x, y % self.env.gridHeight)) for y in range(self.y - self.vision, self.y + self.vision + 1)
+            [self.env.getAgent((self.x, y % self.env.gridHeight)) for y in
+             range(self.y - self.vision, self.y + self.vision + 1)
              if self.env.isLocationValid((self.x, y % self.env.gridHeight))
              and not self.env.isLocationFree((self.x, y % self.env.gridHeight))
              and y % self.env.gridHeight != self.y])
@@ -405,13 +408,15 @@ class Agent:
 
     # build a list of possible preys around
     def getPreys(self):
-        preys = [self.env.getAgent((x % self.env.gridWidth, self.y)) for x in range(self.x - self.vision, self.x + self.vision + 1)
+        preys = [self.env.getAgent((x % self.env.gridWidth, self.y)) for x in
+                 range(self.x - self.vision, self.x + self.vision + 1)
                  if self.env.isLocationValid((x % self.env.gridWidth, self.y))
                  and not self.env.isLocationFree((x % self.env.gridWidth, self.y))
                  and self.sugar > self.env.getAgent((x % self.env.gridWidth, self.y)).getSugar()
                  and self.env.getAgent((x % self.env.gridWidth, self.y)).getTribe() != self.getTribe()]
 
-        preys.extend([self.env.getAgent((self.x, y % self.env.gridHeight)) for y in range(self.y - self.vision, self.y + self.vision + 1)
+        preys.extend([self.env.getAgent((self.x, y % self.env.gridHeight)) for y in
+                      range(self.y - self.vision, self.y + self.vision + 1)
                       if self.env.isLocationValid((self.x, y % self.env.gridHeight))
                       and not self.env.isLocationFree((self.x, y % self.env.gridHeight))
                       and self.sugar > self.env.getAgent((self.x, y % self.env.gridHeight)).getSugar()
@@ -420,6 +425,7 @@ class Agent:
         random.shuffle(preys)
 
         return preys
+
     def getFoodWithCombat(self, prey_list):
         preys = prey_list
 
@@ -867,13 +873,16 @@ class Agent:
         else:
             return min(self.sugar // self.sugarMetabolism, self.spice // self.spiceMetabolism)
 
-    def utilicalcPollution(self, agent, pMove, fcVars):
+    def utilicalcPollution(self, agent, pMove):
+        circumstances = {}
         pollution = self.env.getPollutionAtLocation(pMove)
         sugarCapacity = self.env.getSugarAmt(pMove)
-        fcVars["duration"] -= (sugarCapacity / (1 + pollution)) / agent.sugarMetabolism,  # sugar / 1 + pollution
+        circumstances["duration"] -= (sugarCapacity / (1 + pollution)) / agent.sugarMetabolism,  # sugar / 1 + pollution
+        return circumstances
 
-    def utilicalcCombat(self, agent, pMove,
-                        fcVars):  # TODO: do something interesting with tags here? Should agent care about agents with other tags?
+    def utilicalcCombat(self, agent,
+                        pMove):  # TODO: do something interesting with tags here? Should agent care about agents with other tags?
+        circumstances = {}
         agentX, agentY = agent.x, agent.y
         # if we're moving
         if agent == self:
@@ -886,16 +895,16 @@ class Agent:
                 if agentOnSite.getTags() == agent.getTags():
                     return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
-            fcVars["intensity"] = 1 / (1 + daysToDeath)
-            fcVars["duration"] = siteWealth / agent.sugarMetabolism
-            fcVars["certainty"] = 1  # certainty is their distance from the food. 0 if they cannot see the food.
+            circumstances["intensity"] = 1 / (1 + daysToDeath)
+            circumstances["duration"] = siteWealth / agent.sugarMetabolism
+            circumstances["certainty"] = 1  # certainty is their distance from the food. 0 if they cannot see the food.
 
         # if this agent will be killed by a move here
         elif pMove == agent.getLocation():
             daysToDeath = agent.getDaysToStarvation()
-            fcVars["intensity"] = 1 - (1 / (1 + daysToDeath))  # agent will be killed
-            fcVars["duration"] = 1
-            fcVars["certainty"] = 1
+            circumstances["intensity"] = 1 - (1 / (1 + daysToDeath))  # agent will be killed
+            circumstances["duration"] = 1
+            circumstances["certainty"] = 1
 
         # If they are of the same tribe
         elif agent.getTribe() == self.getTribe():
@@ -911,9 +920,9 @@ class Agent:
                     return
                 siteWealth += min(agentOnSite.getSugar(), self.env.getCombatAlpha())
 
-            fcVars["intensity"] = 1 / (1 + daysToDeath)
-            fcVars["duration"] = siteWealth / agent.sugarMetabolism
-            fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
+            circumstances["intensity"] = 1 / (1 + daysToDeath)
+            circumstances["duration"] = siteWealth / agent.sugarMetabolism
+            circumstances["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
                 1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
 
         # If they are of a different tribe
@@ -922,31 +931,35 @@ class Agent:
             if agentOnSite and agentOnSite.getTags() == agent.getTags():
                 daysToDeath = agent.getDaysToStarvation()
 
-                fcVars["intensity"] = daysToDeath
-                fcVars["duration"] = .5
-                fcVars["certainty"] = 1
+                circumstances["intensity"] = daysToDeath
+                circumstances["duration"] = .5
+                circumstances["certainty"] = 1
+        return circumstances
 
-    #TODO: Rewrite to match refactoring in utilicalcMove - does not refer to spice currently
-    def utilicalcSpice(self, agent, pMove, fcVars):
+    # TODO: Rewrite to match refactoring in utilicalcMove - does not refer to spice currently
+    def utilicalcSpice(self, agent, pMove):
+        circumstances = {}
         agentX, agentY = agent.x, agent.y
 
-        fcVars["intensity"] = agent.getWelfare(x=pMove[0],
-                                               y=pMove[1])  # based off of how much they need sugar/spice
-        fcVars["duration"] = 1  # TODO: change to delta time to live
-        fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
+        circumstances["intensity"] = agent.getWelfare(x=pMove[0],
+                                                      y=pMove[1])  # based off of how much they need sugar/spice
+        circumstances["duration"] = 1  # TODO: change to delta time to live
+        circumstances["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
             1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
+        return circumstances
 
-    def utilicalcDisease(self, agent, pMove, fcVars):
+    def utilicalcDisease(self, agent, pMove):
+        circumstances = {}
         agentX, agentY = agent.x, agent.y
 
         if agent != self:
             # if agents are nearby the potential move location, we must account for potential sickness
             if getDistance(agentX, agentY, pMove[0], pMove[1]) == 1 and self.isDiseased():
-                fcVars["fecundity"] = 1
-                fcVars["f_intensity"] = 1 / agent.getSugarMetabolism()
-                fcVars["f_duration"] = self.env.getDiseaseLength()
-                fcVars["f_propinquity"] = 1
-                fcVars["f_extent"] = 1
+                circumstances["fecundity"] = 1
+                circumstances["f_intensity"] = 1 / agent.getSugarMetabolism()
+                circumstances["f_duration"] = self.env.getDiseaseLength()
+                circumstances["f_proximity"] = 1
+                circumstances["f_extent"] = 1
 
         else:
             numDiseasedNearby = 0
@@ -957,53 +970,60 @@ class Agent:
                         getDistance(foodNeighbor.x, foodNeighbor.y, agent.x, agent.y) <= agent.getVision():
                     numDiseasedNearby += foodNeighbor.isDiseased()
 
-            fcVars["purity"] = 1
-            fcVars["p_intensity"] = numDiseasedNearby / agent.getSugarMetabolism()  # if none are diseased, 0
-            fcVars["p_duration"] = self.env.getDiseaseLength()
-            fcVars["p_propinquity"] = 1
-            fcVars["p_extent"] = 1
+            circumstances["purity"] = 1
+            circumstances["p_intensity"] = numDiseasedNearby / agent.getSugarMetabolism()  # if none are diseased, 0
+            circumstances["p_duration"] = self.env.getDiseaseLength()
+            circumstances["p_proximity"] = 1
+            circumstances["p_extent"] = 1
+        return circumstances
 
-    def utilicalcSugar(self, agent, pMove, fcVars):
+    def utilicalcSugar(self, agent, pMove):
+        circumstances = {}
         agentX, agentY = agent.x, agent.y
         siteWealth = self.env.getSugarAmt(pMove)
         daysToDeath = agent.getDaysToStarvation()
 
-        fcVars["intensity"] = 1 / (1 + daysToDeath)
-        fcVars["duration"] = siteWealth / agent.sugarMetabolism
-        fcVars["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[
-            1]) <= agent.getVision() else 0  # certainty is their distance from the food. 0 if they cannot see the food.
+        circumstances["intensity"] = 1 / (1 + daysToDeath)
+        circumstances["duration"] = (siteWealth / agent.sugarMetabolism) / self.env.getMaxCapacity()
+        circumstances["certainty"] = 1 if getDistance(agentX, agentY, pMove[0], pMove[1]) <= agent.getVision() and (agent.x == pMove[0] or agent.y == pMove[1]) else 0  # certainty is their distance from the food. 0 if they cannot see the food.
+        circumstances["proximity"] = 1
+        circumstances["futureBliss"] = 0
+        # circumstances["fecundity"] = 0
+        return circumstances
 
-'''
-TODO: rework utilicalc movement functions to this form
-for move in potentialMoves:
-    # repeat next two lines for every option/toggle (e.g. combat, spice, trade)
-    for agent in visionNeighborhood:
-        compute utilicalc circumstances - dictionary key: (agent, move), value: [circumstances]
-    if self does move:
-        compute - dictionary key: move, value: visionNeighborhood's utility --> moveImpacts
-return max(moveImpacts)
+    '''
+    TODO: rework utilicalc movement functions to this form
+    for move in potentialMoves:
+        # repeat next two lines for every option/toggle (e.g. combat, spice, trade)
+        for agent in visionNeighborhood:
+            compute utilicalc circumstances - dictionary key: (agent, move), value: [circumstances]
+        if self does move:
+            compute - dictionary key: move, value: visionNeighborhood's utility --> moveImpacts
+    return max(moveImpacts)
+    
+    We have concluded that intensity, duration, and certainty are correct. We need to normalize/scale them to either TTL or total resource value.
+    Certainty will change once we implement a separation of movement and vision.
+    Currently proximity is 1, because if you can see it, you can eat it. Again, this will change when we change movement from vision. (1/distance in time steps)
+    Fecundity/purity are a single magical variable named futureBliss. The futureBliss variable represents the probability of future pleasure.
+    Extent is # of agents in our vision.
+    We will assume omniscience within our own neighborhood.
+    
+    utilicalcSugar:
+    a.	Intensity: [0 : 1] (1/1+daysToDeath)
+    b.	Duration: [0 : 1] [(cell site wealth / agent metabolism) / maxSiteWealth], which is rational
+    c.  Certainty: [1 : 1] if agent can reach move cell, [0 : 0] otherwise
+    d.  Proximity: [0 : 1] the (1/distance in time steps), which is currently 1
+    e.  FutureBliss: [0 : 1] probability of immediate (or limited by computational horizon) future pleasure subsequent to this action
+    f.  Extent: (0 : 1] number of agents in neighborhood  / #agents_visible_in_maxVision
+    
+    utility_of_cell = certainty * proximity * (intensity + duration + discount * futureBliss * futureReward??? + extent)
+    We may wish to weight the variables inside the parenthesis based on some relative importance that we will make up, based on how we think Bentham thought.
+    And of course, we will be right.
+    '''
 
-We have concluded that intensity, duration, and certainty are correct. We need to normalize/scale them to either TTL or total resource value.
-Certainty will change once we implement a separation of movement and vision.
-Currently proximity is 1, because if you can see it, you can eat it. Again, this will change when we change movement from vision. (1/distance in time steps)
-Fecundity/purity are a single magical variable named futureBliss. The futureBliss variable represents the probability of future pleasure.
-Extent is # of agents in our vision.
-We will assume omniscience within our own neighborhood.
-
-utilicalcSugar:
-a.	Intensity: [0 : 1] (1/1+daysToDeath)
-b.	Duration: [0 : 1] [(cell site wealth / agent metabolism) / maxSiteWealth], which is rational
-c.  Certainty: [1 : 1] if agent can reach move cell, [0 : 0] otherwise
-d.  Proximity: [0 : 1] the (1/distance in time steps), which is currently 1
-e.  FutureBliss: [0 : 1] probability of immediate (or limited by computational horizon) future pleasure subsequent to this action
-f.  Extent: (0 : 1] number of agents in neighborhood  / #agents_visible_in_maxVision
-
-utility_of_cell = certainty * proximity * (intensity + duration + discount * futureBliss * futureReward??? + extent)
-We may wish to weight the variables inside the parenthesis based on some relative importance that we will make up, based on how we think Bentham thought.
-And of course, we will be right.
-'''
     # alternative to move function - moves using felicific_calculus.py functions for moral decision making
     def utilicalcMove(self):
+
         self.previousWealth = self.getWealth()
 
         # build a list of available food locations
@@ -1015,77 +1035,78 @@ And of course, we will be right.
         potentialMoves.append((self.x, self.y))
 
         # list of agents
-        agents = self.getVisionNeighbourhood()
-        agents.append(self)
-        actions = fc.ActionSelector()
+        visionNeighborhood = self.getVisionNeighbourhood()
+        visionNeighborhood.append(self)
 
-        if self.env.getSelfInterestScale() is not None:
-            actions.setSelfInterestScale(self.env.getSelfInterestScale())
+        # if self.env.getSelfInterestScale() is not None:
+        #    actions.setSelfInterestScale(self.env.getSelfInterestScale())
 
-        for pMove in potentialMoves:
-            currentAction = fc.Act()
-            for agent in agents:
-                agentX, agentY = agent.getLocation()
-                if agentX == pMove[0] or agentY == pMove[1]:  # if agent not on a same axis, ignore for this location
-                    fcVars = {
-                        "isPleasure": (agent == self),
-                        "intensity": 0,
-                        "duration": 0,
-                        "certainty": 0,
-                        "propinquity": 1,
-                        "fecundity": 0,
-                        "purity": 0,
-                        "f_intensity": 0,
-                        "f_duration": 0,
-                        "f_propinquity": 0,
-                        "f_extent": 0,
-                        "p_intensity": 0,
-                        "p_duration": 0,
-                        "p_propinquity": 0,
-                        "p_extent": 0,
-                        "extent": 1,
-                    }
+        circumstances = {}
+        baseWeight = 1
+        diseaseWeight = .3
+        pollutionWeight = .2
+        secondOrderDiscount = .5
+        for move in potentialMoves:
+            for agent in visionNeighborhood:
+                key = str(agent.id) + " " + str(move)
+                if self.env.getHasCombat():
+                    combatCircumstances = self.utilicalcCombat(agent, move)
+                    for circType in combatCircumstances.keys():
+                        combatCircumstances[circType] *= baseWeight
+                    circumstances[key] = combatCircumstances
+                    circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
-                    if self.env.getHasCombat():
-                        self.utilicalcCombat(agent, pMove, fcVars)
+                elif self.env.getHasSpice():
+                    spiceCircumstances = self.utilicalcSpice(agent, move)
+                    for circType in spiceCircumstances:
+                        spiceCircumstances[circType] *= baseWeight
+                    circumstances[key] = spiceCircumstances
+                    circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
-                    elif self.env.getHasSpice():
-                        self.utilicalcSpice(agent, pMove, fcVars)
+                else:
+                    sugarCircumstances = self.utilicalcSugar(agent, move)
+                    for circType in sugarCircumstances:
+                        sugarCircumstances[circType] *= baseWeight
+                    circumstances[key] = sugarCircumstances
+                    circumstances[key]["extent"] = len(visionNeighborhood) - 1
 
-                    else:
-                        self.utilicalcSugar(agent, pMove, fcVars)
+                if self.env.getHasDisease():
+                    diseaseCircumstances = self.utilicalcDisease(agent, move)
+                    for circType in diseaseCircumstances:
+                        if circType in circumstances[key]:
+                            circumstances[key][circType] += diseaseWeight * diseaseCircumstances[circType]
+                        else:
+                            circumstances[key][circType] = diseaseWeight * diseaseCircumstances[circType]
 
-                    if self.env.getHasPollution():
-                        self.utilicalcPollution(agent, pMove, fcVars)
+                if self.env.getHasPollution():
+                    pollutionCircumstances = self.utilicalcPollution(agent, move)
+                    for circType in pollutionCircumstances:
+                        if circType in circumstances[key]:
+                            circumstances[key][circType] += pollutionWeight * pollutionCircumstances[circType]
+                        else:
+                            circumstances[key][circType] = pollutionWeight * pollutionCircumstances[circType]
 
-                    if self.env.getHasDisease():
-                        self.utilicalcDisease(agent, pMove, fcVars)
+        # we now have circumstances for every location in vision and agent in vision at each location and need to
+        # calculate total cell utilities for each move? utility_of_cell = certainty * proximity * (intensity +
+        # duration + discount * futureBliss * futureReward??? + extent)
 
-                    currentAction.createActor(
-                        isPleasure=fcVars["isPleasure"],
-                        intensity=fcVars["intensity"],
-                        duration=fcVars["duration"],
-                        certainty=fcVars["certainty"],
-                        propinquity=fcVars["propinquity"],
-                        fecundity=fcVars["fecundity"],
-                        purity=fcVars["purity"],
-                        f_intensity=fcVars["f_intensity"],
-                        f_duration=fcVars["f_duration"],
-                        f_propinquity=fcVars["f_propinquity"],
-                        f_extent=fcVars["f_extent"],
-                        p_intensity=fcVars["p_intensity"],
-                        p_duration=fcVars["p_duration"],
-                        p_propinquity=fcVars["p_propinquity"],
-                        p_extent=fcVars["p_extent"],
-                        extent=fcVars["extent"],
-                        isDecisionMaker=(agent == self)
-                    )
-            actions.addAct(str(pMove[0]) + "," + str(pMove[1]), currentAction)
-        bestMoves = actions.getListOfActsWithHighestValue()
-        # actions.printMoralValueForAllDecisions()
-        bestMove = random.choice(bestMoves)
-        newx, newy = bestMove.split(",")
-        newx, newy = int(newx), int(newy)
+        cellUtilities = {}
+        for move in potentialMoves:
+            cellUtilities[move] = 0
+            for agent in visionNeighborhood:
+                if str(agent.id) + " " + str(move) in circumstances:
+                    locCirc = circumstances[str(agent.id) + " " + str(move)]  # location circumstances
+                    agentUtility = 0
+                    # not including extent as this is covered because we are taking everyone nearby into account already
+                    agentUtility += locCirc["certainty"] * locCirc["proximity"] * (
+                                locCirc["intensity"] + locCirc["duration"] + secondOrderDiscount * locCirc["futureBliss"] + locCirc["extent"])
+                    agentUtility *= -1 if agent != self else 1
+                    cellUtilities[move] += agentUtility
+
+        max_location = max(cellUtilities, key=cellUtilities.get)
+
+        bestMove = max_location
+        newx, newy = bestMove
 
         killed = None  # combat
         if self.env.getHasCombat():

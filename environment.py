@@ -61,6 +61,8 @@ class Environment:
 
         self.selfInterestScale = None
 
+        self.maxCapacity = 0
+
     def getHasSpice(self):
         return self.hasSpice
 
@@ -78,6 +80,12 @@ class Environment:
 
     def setHasCredit(self, hasCredit):
         self.hasCredit = hasCredit
+
+    def setMaxCapacity(self, maxCapacity):
+        self.maxCapacity = maxCapacity
+
+    def getMaxCapacity(self):
+        return self.maxCapacity
 
     def setSugarAmt(self, location, value):
         (i, j) = location

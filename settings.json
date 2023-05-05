@@ -2,22 +2,22 @@
   "rules": {
     "grow": true,
     "seasons": false,
-    "moveEat": true,
+    "moveEat": false,
     "canStarve": true,
     "pollution": false,
     "tags": false,
     "combat": false,
-    "limitedLifespan": true,
+    "limitedLifespan": false,
     "replacement": false,
-    "procreate": true,
+    "procreate": false,
     "transmit": false,
-    "spice": true,
-    "trade": true,
+    "spice": false,
+    "trade": false,
     "foresight": false,
     "credit": false,
     "inheritance": false,
     "disease": false,
-	"utilicalc": false
+	"utilicalc": true
   },
 
   "rule_params": {
@@ -53,10 +53,10 @@
       "duration": 10
     },
     "disease": {
-      "immune_system_size": 50,
-      "disease_length": 12,
-      "num_diseases": 25,
-      "num_starting_diseases": 10
+      "immune_system_size": 10,
+      "disease_length": 7,
+      "num_diseases": 5,
+      "num_starting_diseases": 2
     },
     "pollution": {
       "A": 1,
@@ -111,8 +111,8 @@
     "random_seed": 18,
 
     "total_agents": {
-      "blue": 125,
-      "red": 125
+      "blue": 150,
+      "red": 150
     },
     "agent_distributions": {
       "blue": {
@@ -157,15 +157,15 @@
     }
   },
     "agents": {
-      "max_agent_metabolism": 4,
-      "max_agent_vision": 8,
+      "max_agent_metabolism": 5,
+      "max_agent_vision": 5,
       "initial_endowments": {
-        "min": 50,
-        "max": 100
+        "min": 20,
+        "max": 30
       },
       "death_age_range": {
-        "min": 100,
-        "max": 120
+        "min": 60,
+        "max": 100
       },
       "fertility_age_ranges": {
         "male": {

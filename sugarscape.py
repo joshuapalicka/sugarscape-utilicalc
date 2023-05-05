@@ -26,6 +26,8 @@ initial simulation parameters
 with open('settings.json') as settings_file:
     settings = json.load(settings_file)
 
+
+
 # view
 screenSize = settings["view"]["screen_size"]["x"], settings["view"]["screen_size"]["y"]
 gridSize = settings["view"]["grid_size"]["x"], settings["view"]["grid_size"]["y"]
@@ -462,6 +464,10 @@ class View:
         self.statsTextBox = None
         self.agentViewOptions = None
 
+        self.population_200_ago = 0
+        self.pop_at_100 = 0
+        self.gini_at_100 = 0
+
     # Maps the agent color scheme number to which function determines the color of each agent
     agentColorSchemes = {0: colorAllRed, 1: colorBySex, 2: colorBySugarMetabolism, 3: colorByVision, 4: colorByGroup, 5: colorByAge, 6: colorByWealth,
                          7: colorBySpiceMetabolism, 8: colorByNumberOfDiseases, 9: colorByIsDiseased}
@@ -666,6 +672,42 @@ class View:
         self.updateStatsWindow()
         self.updateLocationStatsWindow()
         self.drawLocationCanvas()
+
+        if self.iteration == 100:
+            self.pop_at_100 = self.population[-1]
+            self.gini_at_100 = self.gini[-1]
+
+        if self.iteration >= 200:
+            self.population_200_ago = self.population[len(self.population)-200]
+
+        if self.population[-1] == self.population_200_ago:
+            data_to_write = [seed, self.pop_at_100, round(self.gini_at_100, 2), str(self.population[-1])]
+            self.update_data_file("data_collection/data.txt", data_to_write)
+            exit()
+
+    def update_data_file(self, filename, data):
+        # Read existing data
+        try:
+            with open(filename, 'r') as file:
+                lines = file.readlines()
+        except FileNotFoundError:
+            lines = []
+
+        # If the file is empty or has fewer lines than data, extend the lines list
+        if len(lines) < len(data):
+            lines.extend([''] * (len(data) - len(lines)))
+
+        # Append new data to existing lines
+        for i, value in enumerate(data):
+            if lines[i].strip():  # If the line is not empty
+                lines[i] = lines[i].strip() + ", " + str(value) + '\n'
+            else:
+                lines[i] = str(value) + '\n'
+
+        # Write updated data back to the file
+        with open(filename, 'w') as file:
+            file.writelines(lines)
+
 
     # Determines which color each square should be
     def getFillColor(self, row, col):
@@ -1448,11 +1490,13 @@ if __name__ == '__main__':
 
     env = Environment(gridSize)
 
-    # add radial food site 
+    # add radial food site
     env.addSugarSite(sites["northeast"], maxCapacity)
 
-    # add radial food site 
+    # add radial food site
     env.addSugarSite(sites["southwest"], maxCapacity)
+
+    env.setMaxCapacity(maxCapacity)
 
     if rules["combat"]:
         env.setHasCombat(True)
